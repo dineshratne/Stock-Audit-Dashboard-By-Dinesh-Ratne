@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ratne Stock Audit & Bulk Reconciliation Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Mulish:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+/* Adaptive Theme Variables Mapping */
+:root {
+  --bg:      #0d0f14;
+  --bg2:     #141720;
+  --bg3:     #1c2030;
+  --bg4:     #232840;
+  --border:  rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.04);
+  --ink:     #e8eaf0;
+  --ink2:    #9399b0;
+  --ink3:    #555d7a;
+  --accent:  #3b82f6;
+  --accent2: #60a5fa;
+  --green:   #34d399;
+  --green-bg:rgba(52,211,153,0.1);
+  --amber:   #fbbf24;
+  --amber-bg:rgba(251,191,36,0.1);
+  --red:     #f87171;
+  --red-bg:  rgba(248,113,113,0.1);
+  --purple:  #c084fc;
+}
+
+body {
+  font-family:'Mulish',sans-serif;
+  background:var(--bg);
+  color:var(--ink);
+  min-height:100vh;
+}
+
+body::before {
+  content:'';
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(59,130,246,0.015) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(59,130,246,0.015) 1px,transparent 1px);
+  background-size:48px 48px;
+  pointer-events:none;z-index:0;
+}
+
+.layout{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:2rem 1.5rem}
+
+/* Header */
+.header {
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;
+  padding-bottom:1.5rem;
+  border-bottom:1px solid var(--border);
+}
+.header-left { display:flex;align-items:center;gap:16px; }
+.logo-mark {
+  width:44px;height:44px;border-radius:12px;
+  background:linear-gradient(135deg,var(--accent),var(--purple));
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Syne',sans-serif;font-weight:700;font-size:18px;color:#fff;
+}
+.header-left h1 {
+  font-family:'Syne',sans-serif;font-size:22px;font-weight:700;
+  color:var(--ink);letter-spacing:-0.3px;line-height:1.1;
+}
+.header-left p {
+  font-size:12px;color:var(--ink2);font-family:'JetBrains Mono',monospace;
+  margin-top:3px;
+}
+.header-right{display:flex;align-items:center;gap:10px;}
+
+.audit-badge {
+  display:flex;align-items:center;gap:6px;
+  background:var(--amber-bg);border:1px solid rgba(251,191,36,0.2);
+  border-radius:20px;padding:5px 12px;
+  font-size:11px;font-weight:600;color:var(--amber);
+  font-family:'JetBrains Mono',monospace;
+}
+
+/* Control Panel */
+.settings-panel {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 16px;
+  padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: flex-end;
+}
+@media(max-width: 850px){ .settings-panel { grid-template-columns: 1fr; } }
+.settings-group { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.settings-label {
+  font-size: 11px; font-weight: 700; color: var(--ink2);
+  font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.settings-select, .settings-input {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; font-family: 'Mulish', sans-serif; font-size: 13px;
+  color: var(--ink); outline: none; width: 100%;
+}
+
+.btn-danger {
+  background: var(--red-bg); border: 1px solid rgba(248,113,113,0.3);
+  color: var(--red); font-family: 'Syne', sans-serif; font-weight: 700;
+  padding: 10px 14px; border-radius: 10px; cursor: pointer; font-size: 13px; transition: all 0.2s;
+}
+.btn-danger:hover { background: var(--red); color: #fff; }
+
+.file-upload-btn {
+  background: var(--bg3); border: 2px dashed var(--border); border-radius: 10px;
+  padding: 8px 12px; text-align: center; color: var(--accent2); cursor: pointer;
+  font-size: 13px; font-weight: 600; transition: background 0.2s; display: block; width: 100%;
+}
+.file-upload-btn:hover { background: var(--bg4); border-color: var(--accent); }
+
+/* Verification Workspace Split */
+.audit-workspace-grid {
+  display: grid; grid-template-columns: 1.3fr 1fr; gap: 1.25rem; margin-bottom: 1.5rem;
+}
+@media(max-width: 850px){ .audit-workspace-grid { grid-template-columns: 1fr; } }
+
+.audit-card-form {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem;
+  position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 12px;
+}
+.audit-card-form::before {
+  content: ''; position: absolute; top:0; left:0; right:0; height:2px; background: linear-gradient(90deg, var(--accent), var(--purple));
+}
+.form-row-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-btn {
+  width: 100%; padding: 12px; border: none; border-radius: 10px; font-family: 'Syne', sans-serif;
+  font-weight: 700; font-size: 14px; cursor: pointer; color: #fff; background: linear-gradient(135deg, var(--accent), var(--purple));
+  transition: opacity 0.2s; margin-top: 4px;
+}
+.form-btn:hover { opacity: 0.9; }
+
+/* Stats Component */
+.stats {
+  display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap:12px; margin-bottom: 1.5rem;
+}
+.stat-card {
+  background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:1.1rem 1.25rem;
+}
+.stat-label { font-size:10px; font-weight:600; color:var(--ink3); text-transform:uppercase; font-family:'JetBrains Mono',monospace; margin-bottom:4px;}
+.stat-value { font-family:'Syne',sans-serif; font-size:26px; font-weight:700; color:var(--ink); }
+.stat-value.red { color: var(--red); }
+.stat-value.amber { color: var(--amber); }
+.stat-value.green { color: var(--green); }
+
+/* Panels and Charts */
+.charts-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 1.25rem; margin-bottom: 1.5rem; }
+@media(max-width: 760px){ .charts-grid { grid-template-columns: 1fr; } }
+.panel { background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:1.5rem; }
+.panel-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; }
+.panel-title { font-family:'Syne',sans-serif; font-size:14px; font-weight:700; color:var(--ink); display:flex; align-items:center; gap:8px; }
+.panel-title .dot { width:8px; height:8px; border-radius:50%; background:var(--accent); }
+.chart-wrap { position:relative; height:220px; width:100%; }
+
+/* Filter Registry Systems */
+.filters-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:1rem; }
+.search-box {
+  flex:1; min-width:180px; background:var(--bg3); border:1px solid var(--border); border-radius:10px;
+  padding:8px 14px; font-family:'Mulish',sans-serif; font-size:13px; color:var(--ink); outline:none;
+}
+.filter-btn {
+  background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:8px 14px;
+  font-family:'Mulish',sans-serif; font-size:12px; font-weight:600; color:var(--ink2); cursor:pointer;
+}
+.filter-btn.active { border-color:var(--accent); color:var(--accent); background:var(--bg4); }
+
+/* Data Tables */
+.table-scroll { overflow-x:auto; }
+.inv-table { width:100%; border-collapse:collapse; font-size:13px; min-width:800px; }
+.inv-table th {
+  text-align:left; padding:10px 14px; font-size:10px; font-weight:600; color:var(--ink3);
+  text-transform:uppercase; font-family:'JetBrains Mono',monospace; border-bottom:1px solid var(--border);
+}
+.inv-table td { padding:12px 14px; border-bottom:1px solid var(--border2); vertical-align:middle; }
+.sku-pill { background:var(--bg4); border:1px solid var(--border); border-radius:6px; padding:3px 8px; font-family:'JetBrains Mono',monospace; font-size:11px; }
+
+/* Variance Indicators */
+.var-pill {
+  font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:600; padding:2px 8px; border-radius:6px; display:inline-block;
+}
+.var-pill.zero { background: var(--bg3); color: var(--ink2); }
+.var-pill.loss { background: var(--red-bg); color: var(--red); }
+.var-pill.surplus { background: var(--green-bg); color: var(--green); }
+
+.status-badge {
+  display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; font-family:'JetBrains Mono',monospace; text-transform:uppercase;
+}
+.status-badge.matched { background:var(--green-bg); color:var(--green); }
+.status-badge.discrepancy { background:var(--red-bg); color:var(--red); }
+
+.log-container { max-height: 200px; overflow-y: auto; font-family:'JetBrains Mono',monospace; font-size: 11px; }
+.log-row { padding: 8px 0; border-bottom: 1px solid var(--border2); display: flex; justify-content: space-between; gap:10px; }
+.log-time { color: var(--ink3); }
+
+.footer { display:flex; align-items:center; justify-content:space-between; padding:1.25rem 0; border-top:1px solid var(--border2); margin-top:1.5rem; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink3); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <div class="header">
+    <div class="header-left">
+      <div class="logo-mark">RT</div>
+      <div>
+        <h1>Ratne Stock Audit & Reconciliation Hub</h1>
+        <p>AUDIT_ENGINE_v6.1 · Reset Cache Protection Configured</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="btn-danger" style="padding: 8px 14px; font-size:12px; background: rgba(239, 68, 68, 0.15);" onclick="clearAllFloorCounts()">🗑️ Clear Current Floor Counts & Start Fresh Audit</button>
+      <div class="audit-badge">📋 HIGH SPEED SCAN MODE ACTIVE</div>
+    </div>
+  </div>
+
+  <div class="settings-panel">
+    <div class="settings-group">
+      <div class="settings-label">📍 Target Warehouse Segment Zone</div>
+      <div style="display: flex; gap: 8px;">
+        <select class="settings-select" id="warehouseSelect" onchange="switchWarehouse()"></select>
+        <button class="btn-danger" style="white-space: nowrap; padding: 10px 12px; font-size:12px;" onclick="deleteActiveWarehouse()">❌ Delete Zone</button>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-label">📥 Excel Catalog Importer (Upload Product Master .CSV File)</div>
+      <label class="file-upload-btn">
+        📁 Choose Product Sheet CSV File
+        <input type="file" id="csvFileInput" accept=".csv" style="display:none;" onchange="handleCSVUpload(event)">
+      </label>
+    </div>
+  </div>
+
+  <div class="audit-workspace-grid">
+    
+    <div class="audit-card-form">
+      <div class="settings-label" style="color:var(--accent); margin-bottom:4px; font-size:12px;">⚡ High-Speed SKU Floor Reconciliation Engine</div>
+      
+      <div class="form-row-grid">
+        <div>
+          <label class="settings-label" style="font-size:10px; color:var(--accent2);">Type or Scan SKU Code</label>
+          <input type="text" class="settings-input" id="searchSkuInput" placeholder="Type SKU (e.g. SKU-1001)" oninput="handleSkuAutoSearch()" style="border-color: var(--accent); font-weight:700; font-family:'JetBrains Mono'">
+        </div>
+        <div>
+          <label class="settings-label" style="font-size:10px;">Product Matching Identity</label>
+          <input type="text" class="settings-input" id="formProductName" disabled style="opacity:0.9; font-weight:600; color: #ffffff; background: var(--bg4);">
+        </div>
+      </div>
+      
+      <div class="form-row-grid">
+        <div>
+          <label class="settings-label" style="font-size:10px;">Brand Group</label>
+          <input type="text" class="settings-input" id="formProductBrand" disabled style="opacity:0.7;">
+        </div>
+        <div>
+          <label class="settings-label" style="font-size:10px;">Unit Rate Cost</label>
+          <input type="text" class="settings-input" id="formProductPrice" disabled style="opacity:0.7;">
+        </div>
+      </div>
+      
+      <div class="form-row-grid">
+        <div>
+          <label class="settings-label" style="font-size:10px;">System Book Balance</label>
+          <input type="number" class="settings-input" id="formSystemQty" disabled style="opacity:0.7;">
+        </div>
+        <div>
+          <label class="settings-label" style="font-size:10px; color:var(--purple)">Current Physical Floor Count</label>
+          <input type="number" class="settings-input" id="formCurrentPhysicalQty" disabled style="opacity:0.7;">
+        </div>
+      </div>
+
+      <div class="form-row-grid">
+        <div>
+          <label class="settings-label" style="font-size:10px; color:var(--amber);">Audit Operation Mode</label>
+          <select class="settings-select" id="auditActionMode">
+            <option value="set">Set absolute floor count directly</option>
+            <option value="add">Add to current physical count (+ Found more)</option>
+            <option value="sub">Subtract from physical count (- Damages)</option>
+          </select>
+        </div>
+        <div>
+          <label class="settings-label" style="font-size:10px; color:var(--amber); font-weight:700;">Adjustment Quantity</label>
+          <input type="number" class="settings-input" id="formPhysicalQtyInput" placeholder="Enter quantity value" style="border-color: var(--amber);">
+        </div>
+      </div>
+      
+      <button class="form-btn" onclick="submitAuditRecord()">Submit & Reconcile SKU</button>
+    </div>
+
+    <div class="panel" style="display: flex; flex-direction: column; justify-content: space-between;">
+      <div class="panel-header" style="margin-bottom: 5px;">
+        <div class="panel-title"><div class="dot" style="background:var(--purple)"></div>Live Session Verification Activity Log</div>
+      </div>
+      <div class="log-container" id="logContainer">
+        <div style="text-align:center; padding:3.5rem 0; color:var(--ink3);">No operational audit modifications recorded in this session.</div>
+      </div>
+      <div style="background:var(--bg3); padding:10px; border-radius:8px; border:1px solid var(--border); font-size:11px;">
+        <span style="color:var(--accent2); font-weight:700;">💡 Tip for Fresh Audits:</span> Click the red button at the top right corner anytime to clear out verified floor numbers and begin a totally blank stock take.
+      </div>
+    </div>
+
+  </div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">Total SKUs Tracked</div>
+      <div class="stat-value" id="metricTotalSKUs">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color:var(--green)">Matched Balances</div>
+      <div class="stat-value green" id="metricMatched">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color:var(--red)">Discrepant Items</div>
+      <div class="stat-value red" id="metricDiscrepant">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Net Shrinkage Cost Impact</div>
+      <div class="stat-value red" id="metricShrinkageCost">—</div>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="panel">
+      <div class="panel-header"><div class="panel-title"><div class="dot"></div>Audit Match Ratios</div></div>
+      <div class="chart-wrap"><canvas id="donutChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><div class="panel-title"><div class="dot" style="background:var(--purple)"></div>Variance Quantity Spread (Book vs Physical)</div></div>
+      <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header" style="justify-content:space-between; flex-wrap:wrap; gap:10px;">
+      <div class="panel-title"><div class="dot" style="background:var(--green)"></div>Physical Reconciliation Verification Log Master Registry</div>
+      <button class="filter-btn" style="background:var(--accent); color:#fff; border:none;" onclick="exportAuditReport()">📊 Export Reconciliation Sheet (.CSV)</button>
+    </div>
+    <div class="filters-bar">
+      <input class="search-box" id="searchBox" type="text" placeholder="🔍 Filter ledger item name or SKU code..." oninput="renderAuditTable()">
+      <button class="filter-btn active" id="fAll" onclick="setFilter('all')">All Products</button>
+      <button class="filter-btn" id="fMatched" onclick="setFilter('matched')">✅ Balanced / Matched</button>
+      <button class="filter-btn" id="fDiscrep" onclick="setFilter('discrepant')">🚨 Discrepancies Found</button>
+    </div>
+    <div class="table-scroll">
+      <div id="tableContainer"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div id="footerTimestamp">Session tracking initiated</div>
+    <div>Ratne Logistics Hub Software Architecture Profile Engine</div>
+  </div>
+
+</div>
+
+<script>
+// Base configuration data mapping framework
+const defaultSeedData = {
+  "Zone Alpha (Sample Warehouse)": [
+    { sku: "SKU-1001", name: "Amul Gold Milk 500 ml", brand: "Amul", bookQty: 150, physicalQty: 0, price: 33 },
+    { sku: "SKU-1002", name: "Taaza Fresh Toned Milk 1 Ltr", brand: "Amul", bookQty: 80, physicalQty: 0, price: 56 },
+    { sku: "SKU-1003", name: "Organic Salted Table Butter", brand: "Amul", bookQty: 25, physicalQty: 0, price: 105 },
+    { sku: "SKU-1004", name: "Premium Paneer Block 200g", brand: "Amul", bookQty: 300, physicalQty: 0, price: 90 }
+  ]
+};
+
+let dataStores = JSON.parse(JSON.stringify(defaultSeedData));
+let activeStoreKey = "Zone Alpha (Sample Warehouse)";
+let activeFilter = "all";
+
+let chartRefBar = null;
+let chartRefDonut = null;
+
+window.addEventListener('load', () => {
+  populateDropdowns();
+  recalculateEverything();
+});
+
+function populateDropdowns() {
+  const storeSelect = document.getElementById('warehouseSelect');
+  storeSelect.innerHTML = '';
+  Object.keys(dataStores).forEach(k => {
+    let o = document.createElement('option'); o.value = k; o.textContent = k;
+    if(k === activeStoreKey) o.selected = true;
+    storeSelect.appendChild(o);
+  });
+}
+
+function switchWarehouse() {
+  activeStoreKey = document.getElementById('warehouseSelect').value;
+  clearScannerForm();
+  recalculateEverything();
+}
+
+function deleteActiveWarehouse() {
+  if(confirm(`Completely wipe out "${activeStoreKey}" zone database?`)) {
+    delete dataStores[activeStoreKey];
+    let remaining = Object.keys(dataStores);
+    if(remaining.length === 0) {
+      dataStores["Zone Alpha (Sample Warehouse)"] = [];
+      activeStoreKey = "Zone Alpha (Sample Warehouse)";
+    } else {
+      activeStoreKey = remaining[0];
+    }
+    populateDropdowns();
+    clearScannerForm();
+    recalculateEverything();
+  }
+}
+
+/* Wipes past counts on the visible warehouse sheet safely */
+function clearAllFloorCounts() {
+  if(confirm(`Are you sure you want to clear out ALL previous floor numbers for "${activeStoreKey}" and reset it to zero for a new audit?`)) {
+    let list = dataStores[activeStoreKey] || [];
+    list.forEach(item => {
+      item.physicalQty = 0;
+    });
+    clearScannerForm();
+    recalculateEverything();
+    document.getElementById('logContainer').innerHTML = `<div style="text-align:center; padding:1.5rem 0; color:var(--amber);">🔄 Current session floor counts reset back to zero. Ready for fresh stock take.</div>`;
+  }
+}
+
+/* RegEx-Based CSV Field Isolator Parser */
+function parseCSVLine(text) {
+  let p = [""], m = null, r = /(?:,|\r?\n|^)(?:"([^"\\]*(?:\\[\S\s][^"\\]*)*)"|([^,\r\n]*))/gi;
+  while (m = r.exec(text)) {
+    let v = m[1] !== undefined ? m[1] : m[2];
+    if (m.index === r.lastIndex) r.lastIndex++;
+    p.push(v);
+  }
+  return p.slice(1);
+}
+
+/* CSV Upload Engine with Auto-Focus and Cache Flush */
+function handleCSVUpload(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const text = e.target.result;
+    const lines = text.split(/\r?\n/);
+    if(lines.length <= 1) { alert("The uploaded file does not contain valid CSV data rows."); return; }
+
+    const firstLineCells = parseCSVLine(lines[0]);
+    const headers = firstLineCells.map(h => h.trim().toLowerCase());
+    
+    const skuIdx = headers.findIndex(h => h.includes('sku') || h.includes('code'));
+    const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('title') || h.includes('product'));
+    const brandIdx = headers.findIndex(h => h.includes('brand') || h.includes('make'));
+    const priceIdx = headers.findIndex(h => h.includes('price') || h.includes('rate') || h.includes('cost'));
+    const bookQtyIdx = headers.findIndex(h => h.includes('book') || h.includes('quantity') || h.includes('qty'));
+
+    if(skuIdx === -1 || nameIdx === -1) {
+      alert("Validation failed: Ensure your CSV file has clear 'SKU' and 'Name' column header tags.");
+      return;
+    }
+
+    let parsedRows = [];
+    for(let i = 1; i < lines.length; i++) {
+      if(!lines[i].trim()) continue;
+      
+      let cols = parseCSVLine(lines[i]);
+      if(cols.length <= Math.max(skuIdx, nameIdx)) continue;
+
+      let skuCode = cols[skuIdx].trim().toUpperCase();
+      let pName = cols[nameIdx].trim();
+      
+      if (!skuCode && !pName) continue;
+
+      let pBrand = brandIdx !== -1 && cols[brandIdx] ? cols[brandIdx].trim() : "Generic";
+      let pPrice = priceIdx !== -1 && !isNaN(parseInt(cols[priceIdx])) ? parseInt(cols[priceIdx]) : 0;
+      let pBook = bookQtyIdx !== -1 && !isNaN(parseInt(cols[bookQtyIdx])) ? parseInt(cols[bookQtyIdx]) : 0;
+
+      parsedRows.push({
+        sku: skuCode,
+        name: pName,
+        brand: pBrand,
+        bookQty: pBook,
+        physicalQty: 0, // Starts at zero for fresh count verification
+        price: pPrice
+      });
+    }
+
+    let cleanZoneName = "Import: " + file.name.replace(/\.[^/.]+$/, "");
+    
+    // Completely overwrite to avoid configuration cache mismatch
+    dataStores[cleanZoneName] = parsedRows;
+    activeStoreKey = cleanZoneName;
+
+    populateDropdowns();
+    clearScannerForm();
+    recalculateEverything();
+
+    const logBox = document.getElementById('logContainer');
+    logBox.innerHTML = '';
+    const logRow = document.createElement('div'); logRow.className = 'log-row';
+    logRow.innerHTML = `<span style="color:var(--green)">📥 Loaded <strong>${parsedRows.length} products</strong> successfully! View auto-focused onto this dataset.</span>`;
+    logBox.appendChild(logRow);
+
+    // FIX: Clear out the element value to trick the browser and force re-upload allowance anytime
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function handleSkuAutoSearch() {
+  const typedSku = document.getElementById('searchSkuInput').value.trim().toUpperCase();
+  let list = dataStores[activeStoreKey] || [];
+  let matchedItem = list.find(x => x.sku === typedSku);
+
+  if(matchedItem) {
+    document.getElementById('formProductName').value = matchedItem.name;
+    document.getElementById('formProductBrand').value = matchedItem.brand;
+    document.getElementById('formProductPrice').value = matchedItem.price > 0 ? "₹" + matchedItem.price : "₹0";
+    document.getElementById('formSystemQty').value = matchedItem.bookQty;
+    document.getElementById('formCurrentPhysicalQty').value = matchedItem.physicalQty;
+  } else {
+    document.getElementById('formProductName').value = "";
+    document.getElementById('formProductBrand').value = "";
+    document.getElementById('formProductPrice').value = "";
+    document.getElementById('formSystemQty').value = "";
+    document.getElementById('formCurrentPhysicalQty').value = "";
+  }
+}
+
+function clearScannerForm() {
+  document.getElementById('searchSkuInput').value = "";
+  document.getElementById('formProductName').value = "";
+  document.getElementById('formProductBrand').value = "";
+  document.getElementById('formProductPrice').value = "";
+  document.getElementById('formSystemQty').value = "";
+  document.getElementById('formCurrentPhysicalQty').value = "";
+  document.getElementById('formPhysicalQtyInput').value = "";
+}
+
+function submitAuditRecord() {
+  const typedSku = document.getElementById('searchSkuInput').value.trim().toUpperCase();
+  const valInput = parseInt(document.getElementById('formPhysicalQtyInput').value);
+  const mode = document.getElementById('auditActionMode').value;
+
+  let list = dataStores[activeStoreKey] || [];
+  let item = list.find(x => x.sku === typedSku);
+
+  if(!item) {
+    alert("Error: SKU code does not exist in the active warehouse database.");
+    return;
+  }
+  if(isNaN(valInput) || valInput < 0) {
+    alert("Please enter a valid positive quantity number.");
+    return;
+  }
+
+  let targetNewQty = item.physicalQty;
+  let logText = "";
+
+  if(mode === "set") {
+    targetNewQty = valInput;
+    logText = `Set floor count directly to ${targetNewQty}`;
+  } else if(mode === "add") {
+    targetNewQty = item.physicalQty + valInput;
+    logText = `Added +${valInput} items. Total: ${targetNewQty}`;
+  } else if(mode === "sub") {
+    targetNewQty = Math.max(0, item.physicalQty - valInput);
+    logText = `Removed -${valInput} items. Total: ${targetNewQty}`;
+  }
+
+  item.physicalQty = targetNewQty;
+  const netDelta = item.physicalQty - item.bookQty;
+
+  const logBox = document.getElementById('logContainer');
+  if(logBox.innerHTML.includes("No operational audit")) logBox.innerHTML = '';
+  const timeStr = new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  const logRow = document.createElement('div'); logRow.className = 'log-row';
+  logRow.innerHTML = `<span><span class="log-time">[${timeStr}]</span> 🎯 <strong>[${item.sku}]</strong> ${logText} (Variance: ${netDelta >= 0 ? '+' + netDelta : netDelta})</span>`;
+  logBox.insertBefore(logRow, logBox.firstChild);
+
+  document.getElementById('formPhysicalQtyInput').value = "";
+  handleSkuAutoSearch();
+  recalculateEverything();
+}
+
+function setFilter(f) {
+  activeFilter = f;
+  ['fAll', 'fMatched', 'fDiscrep'].forEach(id => document.getElementById(id).classList.remove('active'));
+  if(f==='all') document.getElementById('fAll').classList.add('active');
+  if(f==='matched') document.getElementById('fMatched').classList.add('active');
+  if(f==='discrepant') document.getElementById('fDiscrep').classList.add('active');
+  renderAuditTable();
+}
+
+function recalculateEverything() {
+  let list = dataStores[activeStoreKey] || [];
+  
+  let totalSKUs = list.length;
+  let matchedCount = list.filter(x => x.bookQty === x.physicalQty).length;
+  let discrepantCount = totalSKUs - matchedCount;
+  
+  let netLossValue = 0;
+  list.forEach(x => {
+    let diff = x.physicalQty - x.bookQty;
+    if(diff < 0) {
+      netLossValue += Math.abs(diff) * x.price;
+    }
+  });
+
+  document.getElementById('metricTotalSKUs').textContent = totalSKUs;
+  document.getElementById('metricMatched').textContent = matchedCount;
+  document.getElementById('metricDiscrepant').textContent = discrepantCount;
+  document.getElementById('metricShrinkageCost').textContent = netLossValue > 0 ? '₹' + netLossValue.toLocaleString('en-IN') : '₹0';
+
+  buildCharts(list, matchedCount, discrepantCount);
+  renderAuditTable();
+  
+  document.getElementById('footerTimestamp').textContent = "Ledger Updated: " + new Date().toLocaleTimeString('en-IN');
+}
+
+function buildCharts(list, matched, discrepant) {
+  const fConfig = { family: 'JetBrains Mono', size: 10, color: '#9399b0' };
+
+  const ctxD = document.getElementById('donutChart').getContext('2d');
+  if(chartRefDonut) chartRefDonut.destroy();
+  chartRefDonut = new Chart(ctxD, {
+    type: 'doughnut',
+    data: {
+      labels: ['Matched Records', 'Discrepancies'],
+      datasets: [{ data: [matched, discrepant], backgroundColor: ['rgba(52,211,153,0.15)', 'rgba(248,113,113,0.15)'], borderColor: ['#34d399', '#f87171'], borderWidth: 1.5 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: fConfig } } } }
+  });
+
+  const ctxB = document.getElementById('barChart').getContext('2d');
+  if(chartRefBar) chartRefBar.destroy();
+  
+  if(list.length === 0) {
+    ctxB.clearRect(0, 0, ctxB.canvas.width, ctxB.canvas.height);
+    return;
+  }
+
+  let sliceData = list.slice(0, 15);
+
+  chartRefBar = new Chart(ctxB, {
+    type: 'bar',
+    data: {
+      labels: sliceData.map(x => x.sku),
+      datasets: [
+        { label: 'Book Quantities', data: sliceData.map(x => x.bookQty), backgroundColor: 'rgba(59,130,246,0.2)', borderColor: '#3b82f6', borderWidth: 1 },
+        { label: 'Floor Counts', data: sliceData.map(x => x.physicalQty), backgroundColor: 'rgba(192,132,252,0.2)', borderColor: '#c084fc', borderWidth: 1 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top', labels: { font: fConfig } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: fConfig } },
+        y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { font: fConfig } }
+      }
+    }
+  });
+}
+
+function renderAuditTable() {
+  let list = dataStores[activeStoreKey] || [];
+  let search = document.getElementById('searchBox').value.toLowerCase();
+  let targetWrap = document.getElementById('tableContainer');
+  
+  let filtered = list.filter(x => {
+    let mSearch = x.name.toLowerCase().includes(search) || x.sku.toLowerCase().includes(search);
+    let isMatch = x.bookQty === x.physicalQty;
+    let mFilter = activeFilter === 'all' || (activeFilter === 'matched' && isMatch) || (activeFilter === 'discrepant' && !isMatch);
+    return mSearch && mFilter;
+  });
+
+  if(!filtered.length) {
+    targetWrap.innerHTML = `<div style="padding:3rem; text-align:center; color:var(--ink3);">No products matching filters found in this segment zone.</div>`;
+    return;
+  }
+
+  let rowsHtml = filtered.map(x => {
+    let variance = x.physicalQty - x.bookQty;
+    let varClass = variance === 0 ? 'zero' : (variance < 0 ? 'loss' : 'surplus');
+    let varTxt = variance === 0 ? '0' : (variance > 0 ? '+' + variance : variance);
+    
+    let statusClass = variance === 0 ? 'matched' : 'discrepancy';
+    let statusTxt = variance === 0 ? 'Balanced Match' : (variance < 0 ? 'Shrinkage Short' : 'Surplus Stock');
+    let dynamicImpact = variance * x.price;
+
+    return `
+      <tr>
+        <td><span class="sku-pill" style="cursor:pointer;" onclick="setScanSku('${x.sku}')">${x.sku} ⚡</span></td>
+        <td><strong>${x.name}</strong><br><span style="font-size:11px; color:var(--ink3)">${x.brand}</span></td>
+        <td style="font-family:'JetBrains Mono'">${x.bookQty} units</td>
+        <td style="font-family:'JetBrains Mono'; font-weight:700; color:var(--amber);">${x.physicalQty} units</td>
+        <td><span class="var-pill ${varClass}">${varTxt}</span></td>
+        <td style="font-family:'JetBrains Mono'">${x.price > 0 ? '₹' + x.price.toLocaleString('en-IN') : '—'}</td>
+        <td style="font-family:'JetBrains Mono'; font-weight:600; color:${dynamicImpact < 0 ? 'var(--red)' : (dynamicImpact > 0 ? 'var(--green)' : 'var(--ink3)')}">
+          ${dynamicImpact === 0 ? '—' : (dynamicImpact > 0 ? '+₹' + dynamicImpact.toLocaleString('en-IN') : '-₹' + Math.abs(dynamicImpact).toLocaleString('en-IN'))}
+        </td>
+        <td><span class="status-badge ${statusClass}">${statusTxt}</span></td>
+      </tr>
+    `;
+  }).join('');
+
+  targetWrap.innerHTML = `
+    <table class="inv-table">
+      <thead>
+        <tr>
+          <th>SKU Scanner Tag</th>
+          <th>Nomenclature Description</th>
+          <th>Book Statement (System)</th>
+          <th>Verified Count (Floor)</th>
+          <th>Variance Delta</th>
+          <th>Unit Rate Cost</th>
+          <th>Fiscal Value Impact</th>
+          <th>Audit Assessment</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+  `;
+}
+
+function setScanSku(code) {
+  document.getElementById('searchSkuInput').value = code;
+  handleSkuAutoSearch();
+  document.getElementById('formPhysicalQtyInput').focus();
+}
+
+function exportAuditReport() {
+  let csv = "data:text/csv;charset=utf-8,SKU Code,Product Name,Brand,System Book Qty,Physical Verified Qty,Variance,Unit Price,Fiscal Valuation Impact\n";
+  dataStores[activeStoreKey].forEach(x => {
+    let variance = x.physicalQty - x.bookQty;
+    let impact = variance * x.price;
+    csv += `"${x.sku}","${x.name}","${x.brand}",${x.bookQty},${x.physicalQty},${variance},${x.price},${impact}\n`;
+  });
+  let link = document.createElement("a");
+  link.setAttribute("href", encodeURI(csv));
+  link.setAttribute("download", `${activeStoreKey.replace(/\s+/g,'_')}_Audit_Sheet.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+</script>
+</body>
+</html>
