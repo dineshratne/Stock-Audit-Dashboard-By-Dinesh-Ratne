@@ -1,0 +1,2046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ratne Owner Portal — Stock Audit Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Mulish:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg:      #0a0c10;
+  --bg2:     #111318;
+  --bg3:     #181c26;
+  --bg4:     #1f2436;
+  --border:  rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.04);
+  --ink:     #e8eaf0;
+  --ink2:    #9399b0;
+  --ink3:    #555d7a;
+  --accent:  #3b82f6;
+  --accent2: #60a5fa;
+  --green:   #34d399;
+  --green-bg:rgba(52,211,153,0.1);
+  --amber:   #fbbf24;
+  --amber-bg:rgba(251,191,36,0.1);
+  --red:     #f87171;
+  --red-bg:  rgba(248,113,113,0.1);
+  --purple:  #c084fc;
+  --gold:    #f59e0b;
+}
+
+body { font-family:'Mulish',sans-serif; background:var(--bg); color:var(--ink); min-height:100vh; }
+body::before {
+  content:''; position:fixed; inset:0;
+  background-image: linear-gradient(rgba(59,130,246,0.015) 1px,transparent 1px), linear-gradient(90deg,rgba(59,130,246,0.015) 1px,transparent 1px);
+  background-size:48px 48px; pointer-events:none; z-index:0;
+}
+
+/* ===== OVERLAY / MODAL SYSTEM ===== */
+.overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px);
+  display:flex; align-items:center; justify-content:center; z-index:1000; padding:1rem;
+}
+.overlay.hidden { display:none; }
+
+.modal {
+  background:var(--bg2); border:1px solid var(--border); border-radius:20px;
+  padding:2.5rem; width:100%; max-width:440px; position:relative;
+  box-shadow:0 40px 80px rgba(0,0,0,0.6);
+  animation: modalIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes modalIn { from{opacity:0;transform:scale(0.9) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
+
+.modal-logo {
+  width:56px; height:56px; border-radius:16px; margin:0 auto 1.5rem;
+  background:linear-gradient(135deg,var(--accent),var(--purple));
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Syne',sans-serif; font-weight:800; font-size:22px; color:#fff;
+}
+.modal-title { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; text-align:center; margin-bottom:1.5rem; }
+
+.field-group { margin-bottom:1.25rem; }
+.field-label { font-size:10px; font-weight:700; color:var(--ink2); font-family:'JetBrains Mono',monospace; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; display:block; }
+
+.input-password-wrapper { position:relative; display:flex; align-items:center; }
+.field-input {
+  width:100%; background:var(--bg3); border:1px solid var(--border); border-radius:10px;
+  padding:12px 14px; font-family:'Mulish',sans-serif; font-size:14px; color:var(--ink); outline:none; transition:border-color 0.2s;
+}
+.field-input:focus { border-color:var(--accent); }
+.field-input::placeholder { color:var(--ink3); }
+
+.password-toggle-btn {
+  position:absolute; right:12px; background:none; border:none; color:var(--ink2);
+  cursor:pointer; font-size:13px; font-family:'Mulish',sans-serif; font-weight:600; padding:4px;
+}
+.password-toggle-btn:hover { color:var(--ink); }
+
+.login-btn {
+  width:100%; padding:14px; border:none; border-radius:12px;
+  font-family:'Syne',sans-serif; font-weight:700; font-size:15px; cursor:pointer;
+  color:#fff; background:linear-gradient(135deg,var(--accent),var(--purple));
+  transition:opacity 0.2s; margin-top:4px;
+}
+.login-btn:hover { opacity:0.88; }
+
+.error-msg { background:var(--red-bg); border:1px solid rgba(248,113,113,0.3); border-radius:8px; padding:10px 14px; font-size:12px; color:var(--red); margin-bottom:1rem; display:none; }
+.error-msg.show { display:block; }
+
+/* ===== MAIN LAYOUT ===== */
+.layout { position:relative; z-index:1; max-width:1200px; margin:0 auto; padding:2rem 1.5rem; }
+
+.header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:1.5rem; flex-wrap:wrap; gap:1rem;
+  padding-bottom:1.5rem; border-bottom:1px solid var(--border);
+}
+.header-left { display:flex; align-items:center; gap:16px; }
+.logo-mark {
+  width:44px; height:44px; border-radius:12px;
+  background:linear-gradient(135deg,var(--accent),var(--purple));
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Syne',sans-serif; font-weight:800; font-size:18px; color:#fff;
+}
+.header-left h1 { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:var(--ink); letter-spacing:-0.3px; line-height:1.1; }
+.header-left p { font-size:11px; color:var(--ink2); font-family:'JetBrains Mono',monospace; margin-top:3px; }
+.header-right { display:flex; align-items:center; gap:10px; }
+
+.live-clock-container {
+  background:var(--bg3); border:1px solid var(--border); border-radius:12px;
+  padding:6px 14px; font-family:'JetBrains Mono',monospace; font-size:12px;
+  color:var(--amber); text-align:right; display:flex; flex-direction:column; justify-content:center;
+}
+.live-clock-container span { font-size:10px; color:var(--ink2); text-transform:uppercase; letter-spacing:0.5px; }
+
+.user-badge {
+  display:flex; align-items:center; gap:8px;
+  background:var(--bg3); border:1px solid var(--border); border-radius:20px;
+  padding:6px 14px; font-size:12px; color:var(--ink2);
+}
+.user-badge strong { color:var(--ink); }
+.owner-badge-pill {
+  background:linear-gradient(135deg,var(--gold),var(--amber)); color:#000;
+  font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700;
+  padding:2px 8px; border-radius:20px; text-transform:uppercase;
+}
+.company-badge-pill {
+  background:var(--accent); color:#fff;
+  font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700;
+  padding:2px 8px; border-radius:20px;
+}
+.logout-btn {
+  background:var(--red-bg); border:1px solid rgba(248,113,113,0.3); color:var(--red);
+  font-family:'Syne',sans-serif; font-weight:700; padding:8px 14px; border-radius:10px;
+  cursor:pointer; font-size:12px; transition:all 0.2s;
+}
+.logout-btn:hover { background:var(--red); color:#fff; }
+
+/* ===== TABS ===== */
+.main-tabs { display:flex; gap:6px; margin-bottom:1.5rem; flex-wrap:wrap; }
+.main-tab {
+  padding:9px 18px; border-radius:10px; border:1px solid var(--border);
+  background:transparent; color:var(--ink2); font-family:'Syne',sans-serif;
+  font-weight:700; font-size:13px; cursor:pointer; transition:all 0.2s;
+}
+.main-tab.active { background:var(--bg4); border-color:var(--accent); color:var(--accent); }
+.main-tab:hover:not(.active) { background:var(--bg3); color:var(--ink); }
+
+.tab-section { display:none; }
+.tab-section.active { display:block; }
+
+/* ===== PANELS ===== */
+.panel { background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:1.5rem; }
+.panel-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; flex-wrap:wrap; gap:8px; }
+.panel-title { font-family:'Syne',sans-serif; font-size:14px; font-weight:700; color:var(--ink); display:flex; align-items:center; gap:8px; }
+.panel-title .dot { width:8px; height:8px; border-radius:50%; background:var(--accent); }
+
+/* ===== SUBSCRIPTION CARDS ===== */
+.sub-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:1.25rem; margin-bottom:1.5rem; }
+.sub-card {
+  background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:1.75rem 1.5rem;
+  position:relative; overflow:hidden; transition:border-color 0.2s; display:flex; flex-direction:column; justify-content:center; min-height:110px;
+}
+.sub-card:hover { border-color:var(--accent); }
+.sub-card.featured { border-color:var(--gold); }
+.sub-card.featured::before {
+  content:'POPULAR'; position:absolute; top:14px; right:-28px;
+  background:var(--gold); color:#000; font-family:'JetBrains Mono',monospace;
+  font-size:9px; font-weight:700; padding:4px 36px; transform:rotate(45deg);
+}
+.sub-plan-name { font-family:'Syne',sans-serif; font-size:16px; font-weight:800; color:var(--ink); margin-bottom:4px; }
+.sub-price-display { font-family:'Syne',sans-serif; font-size:32px; font-weight:800; color:var(--accent); margin-bottom:2px; }
+.sub-price-display span { font-size:14px; color:var(--ink2); font-weight:400; }
+
+/* ===== PRICE EDIT FORM ===== */
+.price-edit-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1.25rem; margin-bottom:1.5rem; }
+.price-edit-card {
+  background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:1.25rem;
+}
+.price-edit-label { font-family:'Syne',sans-serif; font-size:13px; font-weight:700; margin-bottom:12px; }
+
+/* ===== COMPANY TABLE ===== */
+.company-table { width:100%; border-collapse:collapse; font-size:13px; min-width:700px; }
+.company-table th {
+  text-align:left; padding:10px 14px; font-size:10px; font-weight:600; color:var(--ink3);
+  text-transform:uppercase; font-family:'JetBrains Mono',monospace; border-bottom:1px solid var(--border);
+}
+.company-table td { padding:12px 14px; border-bottom:1px solid var(--border2); vertical-align:middle; }
+.company-table tr:last-child td { border-bottom:none; }
+.company-table tr:hover td { background:rgba(255,255,255,0.02); }
+
+.status-active { background:var(--green-bg); color:var(--green); padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; font-family:'JetBrains Mono',monospace; }
+.status-inactive { background:var(--red-bg); color:var(--red); padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; font-family:'JetBrains Mono',monospace; }
+.status-trial { background:var(--amber-bg); color:var(--amber); padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; font-family:'JetBrains Mono',monospace; }
+
+.action-btn {
+  background:var(--bg4); border:1px solid var(--border); color:var(--ink2);
+  padding:5px 10px; border-radius:7px; cursor:pointer; font-size:11px;
+  font-family:'Mulish',sans-serif; font-weight:600; transition:all 0.2s; margin-right:4px;
+}
+.action-btn:hover { background:var(--accent); color:#fff; border-color:var(--accent); }
+.action-btn.danger:hover { background:var(--red); border-color:var(--red); }
+
+.success-toast {
+  position:fixed; bottom:2rem; right:2rem; z-index:9999;
+  background:var(--green-bg); border:1px solid rgba(52,211,153,0.3);
+  border-radius:12px; padding:12px 20px; font-size:13px; font-weight:700; color:var(--green);
+  display:flex; align-items:center; gap:8px; transform:translateY(80px); opacity:0;
+  transition:all 0.3s;
+}
+.success-toast.show { transform:translateY(0); opacity:1; }
+
+/* ===== ORIGINAL AUDIT STYLES ===== */
+.settings-panel {
+  background:var(--bg2); border:1px solid var(--border); border-radius:16px;
+  padding:1.25rem 1.5rem; margin-bottom:1.5rem;
+  display:grid; grid-template-columns:1fr 1.2fr; gap:1.5rem; align-items:flex-end;
+}
+@media(max-width:950px){ .settings-panel{grid-template-columns:1fr} }
+.settings-group { display:flex; flex-direction:column; gap:6px; width:100%; }
+.settings-label { font-size:11px; font-weight:700; color:var(--ink2); font-family:'JetBrains Mono',monospace; text-transform:uppercase; letter-spacing:0.5px; }
+.settings-select, .settings-input {
+  background:var(--bg3); border:1px solid var(--border); border-radius:10px;
+  padding:10px 12px; font-family:'Mulish',sans-serif; font-size:13px; color:var(--ink); outline:none; width:100%;
+}
+.settings-select:focus, .settings-input:focus { border-color:var(--accent); }
+.btn-danger {
+  background:var(--red-bg); border:1px solid rgba(248,113,113,0.3);
+  color:var(--red); font-family:'Syne',sans-serif; font-weight:700;
+  padding:10px 14px; border-radius:10px; cursor:pointer; font-size:13px; transition:all 0.2s;
+}
+.btn-danger:hover { background:var(--red); color:#fff; }
+.file-upload-btn {
+  background:var(--bg3); border:2px dashed var(--border); border-radius:10px;
+  padding:8px 12px; text-align:center; color:var(--accent2); cursor:pointer;
+  font-size:13px; font-weight:600; transition:background 0.2s; display:block; width:100%;
+}
+.file-upload-btn:hover { background:var(--bg4); border-color:var(--accent); }
+
+/* Sample Template Pill */
+.template-container {
+  display:flex; flex-direction:column; gap:4px; background:rgba(255,255,255,0.02);
+  border:1px dashed var(--border); border-radius:10px; padding:8px 12px;
+}
+.template-title { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink2); text-transform:uppercase; }
+.template-code { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--amber); overflow-x:auto; white-space:nowrap; }
+
+.audit-workspace-grid { display:grid; grid-template-columns:1.3fr 1fr; gap:1.25rem; margin-bottom:1.5rem; }
+@media(max-width:850px){ .audit-workspace-grid{grid-template-columns:1fr} }
+.audit-card-form {
+  background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:1.5rem;
+  position:relative; overflow:hidden; display:flex; flex-direction:column; gap:12px;
+}
+.audit-card-form::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,var(--accent),var(--purple)); }
+.form-row-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.form-btn {
+  width:100%; padding:12px; border:none; border-radius:10px; font-family:'Syne',sans-serif;
+  font-weight:700; font-size:14px; cursor:pointer; color:#fff; background:linear-gradient(135deg,var(--accent),var(--purple));
+  transition:opacity 0.2s; margin-top:4px;
+}
+.form-btn:hover { opacity:0.9; }
+.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:1.5rem; }
+.stat-card { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:1.1rem 1.25rem; }
+.stat-label { font-size:10px; font-weight:600; color:var(--ink3); text-transform:uppercase; font-family:'JetBrains Mono',monospace; margin-bottom:4px; }
+.shadow-value { font-family:'Syne',sans-serif; font-size:26px; font-weight:700; color:var(--ink); }
+.stat-value { font-family:'Syne',sans-serif; font-size:26px; font-weight:700; color:var(--ink); }
+.stat-value.red { color:var(--red); }
+.stat-value.green { color:var(--green); }
+.charts-grid { display:grid; grid-template-columns:1fr 1.2fr; gap:1.25rem; margin-bottom:1.5rem; }
+@media(max-width:760px){ .charts-grid{grid-template-columns:1fr} }
+.chart-wrap { position:relative; height:220px; width:100%; }
+.filters-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:1rem; }
+.search-box {
+  flex:1; min-width:180px; background:var(--bg3); border:1px solid var(--border); border-radius:10px;
+  padding:8px 14px; font-family:'Mulish',sans-serif; font-size:13px; color:var(--ink); outline:none;
+}
+.filter-btn {
+  background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:8px 14px;
+  font-family:'Mulish',sans-serif; font-size:12px; font-weight:600; color:var(--ink2); cursor:pointer;
+}
+.filter-btn.active { border-color:var(--accent); color:var(--accent); background:var(--bg4); }
+.table-scroll { overflow-x:auto; }
+.inv-table { width:100%; border-collapse:collapse; font-size:13px; min-width:800px; }
+.inv-table th { text-align:left; padding:10px 14px; font-size:10px; font-weight:600; color:var(--ink3); text-transform:uppercase; font-family:'JetBrains Mono',monospace; border-bottom:1px solid var(--border); }
+.inv-table td { padding:12px 14px; border-bottom:1px solid var(--border2); vertical-align:middle; }
+.sku-pill { background:var(--bg4); border:1px solid var(--border); border-radius:6px; padding:3px 8px; font-family:'JetBrains Mono',monospace; font-size:11px; }
+.var-pill { font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:600; padding:2px 8px; border-radius:6px; display:inline-block; }
+.var-pill.zero { background:var(--bg3); color:var(--ink2); }
+.var-pill.loss { background:var(--red-bg); color:var(--red); }
+.var-pill.surplus { background:var(--green-bg); color:var(--green); }
+.status-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700; font-family:'JetBrains Mono',monospace; text-transform:uppercase; }
+.status-badge.matched { background:var(--green-bg); color:var(--green); }
+.status-badge.discrepancy { background:var(--red-bg); color:var(--red); }
+.log-container { max-height:200px; overflow-y:auto; font-family:'JetBrains Mono',monospace; font-size:11px; }
+.log-row { padding:8px 0; border-bottom:1px solid var(--border2); display:flex; justify-content:space-between; gap:10px; }
+.log-time { color:var(--ink3); }
+.footer { display:flex; align-items:center; justify-content:space-between; padding:1.25rem 0; border-top:1px solid var(--border2); margin-top:1.5rem; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink3); }
+
+/* ===== SUBSCRIPTION BLOCKED ===== */
+.sub-blocked {
+  text-align:center; padding:4rem 2rem;
+  background:var(--red-bg); border:1px solid rgba(248,113,113,0.2); border-radius:16px;
+}
+.sub-blocked h2 { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:var(--red); margin-bottom:8px; }
+.sub-blocked p { color:var(--ink2); font-size:13px; margin-bottom:1.5rem; }
+
+/* ===== OWNER PROFILE MANAGEMENT CARD ===== */
+.owner-profile-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-top:1.5rem; }
+@media(max-width:760px){ .owner-profile-grid { grid-template-columns:1fr; } }
+
+.plan-tag {
+  display:inline-block; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700;
+  font-family:'JetBrains Mono',monospace; text-transform:uppercase;
+}
+.plan-monthly { background:rgba(52,211,153,0.15); color:var(--green); }
+.plan-halfyearly { background:rgba(59,130,246,0.15); color:var(--accent2); }
+.plan-yearly { background:rgba(251,191,36,0.15); color:var(--amber); }
+
+/* HELPLINE BANNER */
+.helpline-banner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;background:linear-gradient(135deg,rgba(52,211,153,0.08),rgba(52,211,153,0.03));border:1px solid rgba(52,211,153,0.25);border-radius:14px;padding:12px 20px;margin-bottom:1.25rem;}
+.helpline-banner-left{display:flex;align-items:center;gap:12px;}
+.helpline-banner-icon{font-size:24px;}
+.helpline-banner-label{font-size:10px;font-weight:700;color:var(--ink3);font-family:monospace;text-transform:uppercase;letter-spacing:0.5px;}
+.helpline-banner-number{font-family:monospace;font-size:18px;font-weight:700;color:var(--green);}
+.helpline-banner-btn{background:var(--green);color:#000;border:none;border-radius:9px;padding:9px 18px;font-family:sans-serif;font-weight:800;font-size:12px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:all 0.2s;}
+.helpline-banner-btn:hover{background:#2ecc71;}
+
+/* ZONE MANAGER */
+.zone-manager-panel{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:1.25rem 1.5rem;margin-bottom:1.5rem;}
+.zone-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:12px;}
+.zone-card{background:var(--bg3);border:2px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;transition:border-color 0.2s;}
+.zone-card.active-zone{border-color:var(--accent);background:rgba(99,102,241,0.07);}
+.zone-card.zone-done{border-color:rgba(52,211,153,0.6);background:rgba(52,211,153,0.05);}
+.zone-card.zone-inprogress{border-color:rgba(251,191,36,0.5);background:rgba(251,191,36,0.04);}
+.zone-card-header{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+.zone-card-name{font-family:sans-serif;font-weight:700;font-size:13px;color:var(--ink);flex:1;}
+.zone-status-pill{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;font-family:monospace;white-space:nowrap;}
+.zone-status-pill.pending{background:var(--bg4);color:var(--ink3);border:1px solid var(--border);}
+.zone-status-pill.inprogress{background:rgba(251,191,36,0.15);color:var(--amber);border:1px solid rgba(251,191,36,0.3);}
+.zone-status-pill.done{background:rgba(52,211,153,0.15);color:var(--green);border:1px solid rgba(52,211,153,0.3);}
+.zone-card-meta{font-size:11px;color:var(--ink3);font-family:monospace;}
+.zone-auditor-row{display:flex;align-items:center;gap:6px;}
+.zone-auditor-lbl{font-size:10px;color:var(--ink3);font-weight:700;white-space:nowrap;}
+.zone-auditor-inp{flex:1;background:var(--bg4);border:1px solid var(--border);border-radius:7px;padding:5px 9px;font-size:11px;color:var(--ink);outline:none;}
+.zone-auditor-inp:focus{border-color:var(--accent2);}
+.zone-card-btns{display:flex;gap:6px;flex-wrap:wrap;}
+.btn-zone-go{flex:1;background:var(--accent);color:#fff;border:none;border-radius:7px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer;}
+.btn-zone-go:hover{opacity:0.85;}
+.btn-zone-go.current{background:rgba(99,102,241,0.2);color:var(--accent);border:1px solid var(--accent);}
+.btn-zone-complete{background:rgba(52,211,153,0.12);border:1px solid rgba(52,211,153,0.3);color:var(--green);border-radius:7px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.btn-zone-complete:hover,.btn-zone-complete.marked{background:var(--green);color:#000;border-color:var(--green);}
+.btn-zone-del{background:var(--red-bg);border:1px solid rgba(248,113,113,0.3);color:var(--red);border-radius:7px;padding:7px 9px;font-size:11px;font-weight:700;cursor:pointer;}
+.btn-zone-del:hover{background:var(--red);color:#fff;}
+.btn-zone-rename{background:var(--accent2-bg,rgba(99,179,237,0.1));border:1px solid rgba(99,179,237,0.3);color:var(--accent2,#63b3ed);border-radius:7px;padding:7px 9px;font-size:12px;font-weight:700;cursor:pointer;}
+.btn-zone-rename:hover{background:var(--accent2,#63b3ed);color:#fff;}
+.add-zone-strip{display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap;}
+.add-zone-strip-lbl{font-size:12px;color:var(--ink2);font-weight:600;white-space:nowrap;}
+.zone-summary-bar{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;}
+.zone-summary-item{font-family:monospace;font-size:11px;color:var(--ink3);}
+.zone-summary-item strong{font-weight:700;}
+.zone-summary-item.green strong{color:var(--green);}
+.zone-summary-item.amber strong{color:var(--amber);}
+.zone-summary-item.accent strong{color:var(--accent);}
+
+/* SUBSCRIPTION EXPIRED POPUP */
+.sub-expired-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(6px);}
+.sub-expired-box{background:var(--bg2);border:1px solid rgba(248,113,113,0.4);border-radius:20px;padding:2.5rem 2rem;max-width:440px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.5);animation:popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);}
+@keyframes popIn{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
+.sub-expired-icon{font-size:52px;margin-bottom:1rem;}
+.sub-expired-title{font-size:20px;font-weight:800;color:var(--red);margin-bottom:0.5rem;}
+.sub-expired-msg{font-size:13px;color:var(--ink2);line-height:1.7;margin-bottom:1.5rem;}
+.helpline-call-box {
+  background:rgba(52,211,153,0.08); border:1px solid rgba(52,211,153,0.3);
+  border-radius:14px; padding:1rem 1.5rem; margin-bottom:1.5rem;
+}
+.helpline-label { font-size:10px; font-weight:700; color:var(--ink3); font-family:'JetBrains Mono',monospace; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+.helpline-number { font-family:'JetBrains Mono',monospace; font-size:24px; font-weight:700; color:var(--green); letter-spacing:1px; }
+.btn-call-now {
+  display:inline-flex; align-items:center; gap:8px;
+  background:var(--green); color:#000; border:none; border-radius:10px;
+  padding:12px 28px; font-family:'Syne',sans-serif; font-weight:800; font-size:14px;
+  cursor:pointer; text-decoration:none; transition:all 0.2s;
+}
+.btn-call-now:hover { background:#2ecc71; transform:translateY(-1px); }
+
+/* ===== AUDIT PROGRESS TRACKER ===== */
+.progress-tracker-wrap {
+  background:var(--bg2); border:1px solid var(--border); border-radius:16px;
+  padding:1.25rem 1.5rem; margin-bottom:1.5rem;
+}
+.progress-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px; }
+.progress-title { font-family:'Syne',sans-serif; font-size:13px; font-weight:700; color:var(--ink); display:flex; align-items:center; gap:8px; }
+.progress-meta { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink2); }
+.progress-bar-bg {
+  width:100%; height:14px; background:var(--bg4); border-radius:99px; overflow:hidden;
+  border:1px solid var(--border); position:relative;
+}
+.progress-bar-fill {
+  height:100%; border-radius:99px;
+  background:linear-gradient(90deg,var(--accent),var(--green));
+  transition:width 0.6s cubic-bezier(0.34,1.56,0.64,1);
+  position:relative;
+}
+.progress-bar-fill::after {
+  content:''; position:absolute; right:0; top:0; bottom:0; width:6px;
+  background:rgba(255,255,255,0.5); border-radius:99px;
+  animation: pulse-bar 1.5s ease-in-out infinite;
+}
+@keyframes pulse-bar { 0%,100%{opacity:0.3} 50%{opacity:1} }
+.progress-sub-stats { display:flex; gap:1.5rem; margin-top:10px; flex-wrap:wrap; }
+.progress-sub-stat { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink2); }
+.progress-sub-stat strong { font-weight:700; }
+.progress-sub-stat.green strong { color:var(--green); }
+.progress-sub-stat.amber strong { color:var(--amber); }
+.progress-sub-stat.red strong { color:var(--red); }
+
+/* ===== REASON CODE IN FORM ===== */
+.reason-select {
+  background:var(--bg3); border:1px solid rgba(251,191,36,0.4); border-radius:10px;
+  padding:10px 12px; font-family:'Mulish',sans-serif; font-size:13px; color:var(--ink);
+  outline:none; width:100%; transition:border-color 0.2s;
+}
+.reason-select:focus { border-color:var(--amber); }
+
+/* ===== SURPLUS STAT CARD ===== */
+.stat-card.surplus-card { border-color:rgba(52,211,153,0.3); background:linear-gradient(135deg,var(--bg2),rgba(52,211,153,0.04)); }
+
+/* ===== RECOUNT QUEUE PANEL ===== */
+.recount-panel {
+  background:var(--bg2); border:1px solid rgba(251,191,36,0.25); border-radius:16px;
+  padding:1.25rem 1.5rem; margin-bottom:1.5rem;
+}
+.recount-list { display:flex; flex-direction:column; gap:6px; max-height:200px; overflow-y:auto; margin-top:10px; }
+.recount-item {
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--bg3); border:1px solid var(--border); border-radius:10px;
+  padding:8px 14px; font-size:12px; gap:10px; flex-wrap:wrap;
+}
+.recount-sku { font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--amber); font-size:12px; }
+.recount-name { color:var(--ink2); font-size:12px; flex:1; }
+.recount-note { color:var(--ink3); font-style:italic; }
+.btn-recount-clear {
+  background:var(--red-bg); border:1px solid rgba(248,113,113,0.3); color:var(--red);
+  padding:3px 8px; border-radius:6px; font-size:10px; font-weight:700; cursor:pointer;
+  font-family:'JetBrains Mono',monospace; white-space:nowrap;
+}
+.btn-recount-clear:hover { background:var(--red); color:#fff; }
+.btn-recount-flag {
+  background:var(--amber-bg); border:1px solid rgba(251,191,36,0.4); color:var(--amber);
+  padding:4px 10px; border-radius:7px; font-size:11px; font-weight:700; cursor:pointer;
+  font-family:'Syne',sans-serif; transition:all 0.2s; white-space:nowrap;
+}
+.btn-recount-flag:hover { background:var(--amber); color:#000; }
+.recount-empty { text-align:center; padding:1.5rem; color:var(--ink3); font-size:12px; }
+.recount-badge {
+  background:var(--amber-bg); border:1px solid rgba(251,191,36,0.4);
+  color:var(--amber); font-family:'JetBrains Mono',monospace; font-size:10px;
+  font-weight:700; padding:2px 8px; border-radius:20px; margin-left:6px;
+}
+
+/* ===== TOP DISCREPANCY TABLE ===== */
+.top-disc-panel {
+  background:var(--bg2); border:1px solid rgba(248,113,113,0.2); border-radius:16px;
+  padding:1.25rem 1.5rem; margin-bottom:1.5rem;
+}
+.top-disc-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.top-n-select {
+  background:var(--bg3); border:1px solid var(--border); border-radius:8px;
+  padding:6px 12px; font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--ink);
+  outline:none;
+}
+.top-disc-table { width:100%; border-collapse:collapse; font-size:12px; margin-top:10px; }
+.top-disc-table th {
+  text-align:left; padding:8px 12px; font-size:10px; font-weight:600; color:var(--ink3);
+  text-transform:uppercase; font-family:'JetBrains Mono',monospace; border-bottom:1px solid var(--border);
+}
+.top-disc-table td { padding:9px 12px; border-bottom:1px solid var(--border2); vertical-align:middle; }
+.top-disc-table tr:last-child td { border-bottom:none; }
+.rank-badge {
+  width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;
+  font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700;
+}
+.rank-badge.gold { background:rgba(245,158,11,0.2); color:var(--gold); border:1px solid rgba(245,158,11,0.4); }
+.rank-badge.silver { background:rgba(147,153,176,0.2); color:var(--ink2); border:1px solid var(--border); }
+.rank-badge.bronze { background:rgba(180,120,60,0.15); color:#cd7f32; border:1px solid rgba(180,120,60,0.3); }
+.rank-badge.rest { background:var(--bg4); color:var(--ink3); border:1px solid var(--border2); }
+
+/* ===== PRINT STYLES ===== */
+@media print {
+  body { background:#fff !important; color:#000 !important; }
+  .layout > *:not(#printSheetArea), .header, .main-tabs, .settings-panel,
+  .audit-workspace-grid, .stats, .charts-grid, .filters-bar,
+  .progress-tracker-wrap, .recount-panel, .top-disc-panel,
+  #toast, .overlay, .logout-btn, .btn-danger, .btn-primary, .btn-secondary,
+  .export-actions { display:none !important; }
+  #printSheetArea { display:block !important; }
+  .print-table { width:100%; border-collapse:collapse; }
+  .print-table th, .print-table td { border:1px solid #999; padding:6px 10px; font-size:11px; }
+  .print-table th { background:#eee; font-weight:700; }
+}
+#printSheetArea { display:none; }
+</style>
+</head>
+<body>
+
+<div class="overlay" id="loginOverlay">
+  <div class="modal">
+    <div class="modal-logo">RT</div>
+    <div class="modal-title">Ratne Portal Login</div>
+
+    <div id="errorMsg" class="error-msg">Invalid credentials. Please check your login details.</div>
+
+    <div class="field-group">
+      <label class="field-label">Username / Login ID</label>
+      <input type="text" class="field-input" id="loginUsername" placeholder="Enter username or company ID" autocomplete="off">
+    </div>
+    <div class="field-group">
+      <label class="field-label">Password</label>
+      <div class="input-password-wrapper">
+        <input type="password" class="field-input" id="loginPassword" placeholder="Enter security password">
+        <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('loginPassword')">Show</button>
+      </div>
+    </div>
+
+    <button class="login-btn" onclick="doLogin()">🔐 Verify & Login</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="editCompanyOverlay">
+  <div class="modal" style="max-width:560px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+      <div class="modal-title" style="text-align:left;margin-bottom:0;font-size:18px;">✏️ Edit Company</div>
+      <button onclick="closeEditModal()" style="background:var(--bg3);border:1px solid var(--border);color:var(--ink2);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;">✕ Close</button>
+    </div>
+    <div class="form-grid">
+      <div class="field-group">
+        <label class="field-label">Company Name</label>
+        <input type="text" class="field-input" id="editCompanyName" placeholder="Company name">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Contact Person</label>
+        <input type="text" class="field-input" id="editContactPerson" placeholder="Name">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Login Username</label>
+        <input type="text" class="field-input" id="editLoginId" placeholder="username" disabled style="opacity:0.6;">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Status</label>
+        <select class="field-input" id="editStatus">
+          <option value="active">Active</option>
+          <option value="trial">Trial</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div class="field-group" style="grid-column:1/-1;">
+        <label class="field-label">Email</label>
+        <input type="email" class="field-input" id="editEmail" placeholder="company@email.com">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:1rem;">
+      <button class="btn-primary" onclick="saveEditCompany()">💾 Save Changes Local</button>
+      <button class="btn-secondary" onclick="closeEditModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="success-toast" id="toast">✅ Action completed successfully!</div>
+
+<div class="layout" id="mainApp" style="display:none;">
+
+  <div class="header">
+    <div class="header-left">
+      <div class="logo-mark">RT</div>
+      <div>
+        <h1>Ratne Stock Audit &amp; Reconciliation Hub</h1>
+        <p id="headerSubtext">Authenticated System Engine Node</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="live-clock-container">
+        <div id="istClock">00:00:00 AM</div>
+        <span id="istDate">DD-MM-YYYY</span>
+      </div>
+      <div class="user-badge">
+        <span id="userBadgePill"></span>
+        <strong id="userBadgeName"></strong>
+      </div>
+      <button class="logout-btn" id="btnSyncCounts" style="background:var(--green-bg);border-color:rgba(52,211,153,0.3);color:var(--green);" onclick="manualSyncNow()">🔄 Sync Counts</button>
+      <button class="logout-btn" onclick="doLogout()">⏏ Logout</button>
+    </div>
+  </div>
+
+  <div class="main-tabs" id="mainTabs">
+    <button class="main-tab active" onclick="switchTab('audit')" id="tabAudit">📊 Stock Audit Matrix</button>
+    <button class="main-tab owner-only" onclick="switchTab('companies')" id="tabCompanies">🏢 Managed Companies</button>
+    <button class="main-tab owner-only" onclick="switchTab('subscriptions')" id="tabSubscriptions">💎 Rates &amp; Profile</button>
+  </div>
+
+  <div class="tab-section active" id="sectionAudit">
+    <div id="subBlockedMsg" style="display:none;" class="sub-blocked">
+      <h2>⚠️ Subscription Access Revoked / Suspended</h2>
+      <p>Your subscription configuration is marked as Inactive. Please clear pending invoices or contact administration to recover workspace node allocation mapping.</p>
+    </div>
+
+    <div id="auditContent">
+      <select id="warehouseSelect" onchange="switchWarehouse()" style="display:none;"></select>
+
+      <div class="helpline-banner" id="helplineBanner" style="display:none;">
+        <div class="helpline-banner-left">
+          <div class="helpline-banner-icon">&#128222;</div>
+          <div>
+            <div class="helpline-banner-label">Support &amp; Helpline</div>
+            <div class="helpline-banner-number" id="helplineBannerNumber">+91 98765 43210</div>
+          </div>
+        </div>
+        <a class="helpline-banner-btn" id="helplineBannerBtn" href="tel:+919876543210">&#128222; Call Support</a>
+      </div>
+
+      <div class="zone-manager-panel">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+          <div style="font-weight:700;font-size:14px;color:var(--ink);display:flex;align-items:center;gap:8px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);"></div>
+            &#128230; Zone &amp; Audit Task Manager (Cloud Persistent)
+          </div>
+        </div>
+        <div class="zone-summary-bar" id="zoneSummaryBar"></div>
+        <div class="zone-cards-grid" id="zoneCardsGrid"></div>
+        <div class="add-zone-strip">
+          <span class="add-zone-strip-lbl">&#10133; Add New Zone via CSV:</span>
+          <label class="file-upload-btn" style="padding:8px 14px;font-size:12px;margin:0;">
+            &#128193; Choose Product Master CSV
+            <input type="file" id="csvFileInput" accept=".csv" style="display:none;" onchange="handleCSVUpload(event)">
+          </label>
+          <div class="template-container" style="margin:0;padding:8px 12px;font-size:11px;">
+            <span class="template-title">Format:</span>
+            <span class="template-code">SKU,Name,Brand,BookQty,Price</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="progress-tracker-wrap">
+        <div class="progress-header">
+          <div class="progress-title"><div class="dot" style="background:var(--accent)"></div>Audit Coverage Progress — <span id="progressZoneLabel" style="color:var(--accent2);font-size:12px;font-weight:600;"></span></div>
+          <div class="progress-meta"><span id="progressCountedLabel">0</span> of <span id="progressTotalLabel">0</span> SKUs counted</div>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="progressBarFill" style="width:0%"></div>
+        </div>
+        <div class="progress-sub-stats">
+          <div class="progress-sub-stat green">Fully Counted: <strong id="progCounted">0</strong></div>
+          <div class="progress-sub-stat amber">Pending (Zero Count): <strong id="progPending">0</strong></div>
+          <div class="progress-sub-stat red">Discrepancies Found: <strong id="progDiscrep">0</strong></div>
+          <div class="progress-sub-stat">Coverage: <strong id="progPercent" style="color:var(--accent)">0%</strong></div>
+        </div>
+      </div>
+
+      <div class="audit-workspace-grid">
+        <div class="audit-card-form">
+          <div class="settings-label" style="color:var(--accent);margin-bottom:4px;font-size:12px;">⚡ High-Speed SKU Floor Reconciliation Engine</div>
+          <div class="form-row-grid">
+            <div>
+              <label class="settings-label" style="font-size:10px;color:var(--accent2);">Type or Scan SKU Code</label>
+              <input type="text" class="settings-input" id="searchSkuInput" placeholder="Type SKU (e.g. SKU-1001)" oninput="handleSkuAutoSearch()" style="border-color:var(--accent);font-weight:700;font-family:'JetBrains Mono'">
+            </div>
+            <div>
+              <label class="settings-label" style="font-size:10px;">Product Matching Identity</label>
+              <input type="text" class="settings-input" id="formProductName" disabled style="opacity:0.9;font-weight:600;color:#fff;background:var(--bg4);">
+            </div>
+          </div>
+          <div class="form-row-grid">
+            <div>
+              <label class="settings-label" style="font-size:10px;">Brand Group</label>
+              <input type="text" class="settings-input" id="formProductBrand" disabled style="opacity:0.7;">
+            </div>
+            <div>
+              <label class="settings-label" style="font-size:10px;">Unit Rate Cost</label>
+              <input type="text" class="settings-input" id="formProductPrice" disabled style="opacity:0.7;">
+            </div>
+          </div>
+          <div class="form-row-grid">
+            <div>
+              <label class="settings-label" style="font-size:10px;">System Book Balance</label>
+              <input type="number" class="settings-input" id="formSystemQty" disabled style="opacity:0.7;">
+            </div>
+            <div>
+              <label class="settings-label" style="font-size:10px;color:var(--purple)">Current Physical Floor Count</label>
+              <input type="number" class="settings-input" id="formCurrentPhysicalQty" disabled style="opacity:0.7;">
+            </div>
+          </div>
+          <div class="form-row-grid">
+            <div>
+              <label class="settings-label" style="font-size:10px;color:var(--amber);">Audit Operation Mode</label>
+              <select class="settings-select" id="auditActionMode">
+                <option value="set">Set absolute floor count directly</option>
+                <option value="add">Add to current physical count (+ Found more)</option>
+                <option value="sub">Subtract from physical count (- Damages)</option>
+              </select>
+            </div>
+            <div>
+              <label class="settings-label" style="font-size:10px;color:var(--amber);font-weight:700;">Adjustment Quantity</label>
+              <input type="number" class="settings-input" id="formPhysicalQtyInput" placeholder="Enter quantity value" style="border-color:var(--amber);">
+            </div>
+          </div>
+          <div class="form-row-grid">
+            <div>
+              <label class="settings-label" style="font-size:10px;color:var(--purple);">📋 Discrepancy Reason Code</label>
+              <select class="reason-select" id="discReasonCode">
+                <option value="">— Select Reason (if variance) —</option>
+                <option value="Damaged / Defective">Damaged / Defective</option>
+                <option value="Theft / Shrinkage">Theft / Shrinkage</option>
+                <option value="Mis-pick / Wrong Location">Mis-pick / Wrong Location</option>
+                <option value="Returns Not Updated">Returns Not Updated</option>
+                <option value="Supplier Short-shipment">Supplier Short-shipment</option>
+                <option value="Count Error / Recount Needed">Count Error / Recount Needed</option>
+                <option value="Unrecorded Transfer">Unrecorded Transfer</option>
+                <option value="Expired / Written Off">Expired / Written Off</option>
+                <option value="System Entry Error">System Entry Error</option>
+              </select>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <label class="settings-label" style="font-size:10px;color:var(--amber);">🔁 Flag for Recount</label>
+              <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;cursor:pointer;">
+                <input type="checkbox" id="recountFlagCheck" style="accent-color:var(--amber);width:16px;height:16px;">
+                <span style="font-size:12px;color:var(--ink2);">Mark this SKU for second-count verification</span>
+              </label>
+            </div>
+          </div>
+          <button class="form-btn" onclick="submitAuditRecord()">Submit & Reconcile SKU</button>
+        </div>
+
+        <div class="panel" style="display:flex;flex-direction:column;justify-content:space-between;">
+          <div class="panel-header" style="margin-bottom:5px;">
+            <div class="panel-title"><div class="dot" style="background:var(--purple)"></div>Live Session Verification Activity Log</div>
+            <button class="btn-danger" style="padding:6px 12px;font-size:11px;" onclick="clearAllFloorCounts()">🗑️ Clear Floor Counts</button>
+          </div>
+          <div class="log-container" id="logContainer">
+            <div style="text-align:center;padding:3.5rem 0;color:var(--ink3);">No operational audit modifications recorded in this session.</div>
+          </div>
+          <div style="background:var(--bg3);padding:10px;border-radius:8px;border:1px solid var(--border);font-size:11px;">
+            <span style="color:var(--accent2);font-weight:700;">💡 Tip:</span> Floor verification feeds dynamic parameters downstream seamlessly.
+          </div>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-label">Total SKUs Tracked</div>
+          <div class="stat-value" id="metricTotalSKUs">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label" style="color:var(--green)">Matched Balances</div>
+          <div class="stat-value green" id="metricMatched">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label" style="color:var(--red)">Discrepant Items</div>
+          <div class="stat-value red" id="metricDiscrepant">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Net Shrinkage Cost Impact</div>
+          <div class="stat-value red" id="metricShrinkageCost">—</div>
+        </div>
+        <div class="stat-card surplus-card">
+          <div class="stat-label" style="color:var(--green)">⬆ Surplus / Overage Value</div>
+          <div class="stat-value green" id="metricSurplusValue">—</div>
+        </div>
+        <div class="stat-card" style="border-color:rgba(251,191,36,0.25);">
+          <div class="stat-label" style="color:var(--amber)">🔁 Pending Recounts</div>
+          <div class="stat-value" style="color:var(--amber)" id="metricRecountCount">—</div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title"><div class="dot"></div>Audit Match Ratios</div></div>
+          <div class="chart-wrap"><canvas id="donutChart"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title"><div class="dot" style="background:var(--purple)"></div>Variance Quantity Spread (Book vs Physical)</div></div>
+          <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="recount-panel">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <div class="panel-title" style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:8px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--amber);"></div>
+            🔁 Pending Recount Queue
+            <span class="recount-badge" id="recountQueueBadge">0</span>
+          </div>
+          <button class="btn-danger" style="padding:6px 12px;font-size:11px;" onclick="clearAllRecounts()">🗑️ Clear All Flags</button>
+        </div>
+        <div class="recount-list" id="recountList">
+          <div class="recount-empty">No SKUs flagged for recount in this zone.</div>
+        </div>
+      </div>
+
+      <div class="top-disc-panel">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px;">
+          <div class="panel-title" style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:8px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--red);"></div>
+            🚨 Top Discrepancies by Value Impact
+          </div>
+          <div class="top-disc-controls">
+            <span style="font-size:11px;color:var(--ink3);font-family:'JetBrains Mono',monospace;">Show top</span>
+            <select class="top-n-select" id="topNSelect" onchange="renderTopDiscrepancies()">
+              <option value="10">10 Items</option>
+              <option value="20">20 Items</option>
+              <option value="50">50 Items</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-scroll"><div id="topDiscContainer"></div></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header" style="justify-content:space-between;flex-wrap:wrap;gap:10px;">
+          <div class="panel-title"><div class="dot" style="background:var(--green)"></div>Physical Reconciliation Verification Log Master Registry</div>
+          <div class="export-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="filter-btn" style="background:var(--bg4);color:var(--ink2);" onclick="printCountSheet()">🖨️ Print Blank Count Sheet</button>
+            <button class="filter-btn" style="background:var(--accent);color:#fff;border:none;" onclick="exportAuditReport()">📊 Export Reconciliation Sheet (.CSV)</button>
+          </div>
+        </div>
+        <div class="filters-bar">
+          <input class="search-box" id="searchBox" type="text" placeholder="🔍 Filter ledger item name or SKU code..." oninput="renderAuditTable()">
+          <button class="filter-btn active" id="fAll" onclick="setFilter('all')">All Products</button>
+          <button class="filter-btn" id="fMatched" onclick="setFilter('matched')">✅ Balanced</button>
+          <button class="filter-btn" id="fDiscrep" onclick="setFilter('discrepant')">🚨 Discrepancies</button>
+        </div>
+        <div class="table-scroll"><div id="tableContainer"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-section" id="sectionCompanies">
+    <div style="margin-top:1rem;padding:12px 14px;background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.2);border-radius:10px;font-size:13px;color:var(--ink2);line-height:1.8;">
+      <strong style="color:var(--accent2);">⚙️ System Source of Truth Notice</strong><br>
+      To maximize ecosystem data integrity, all company profiles, sync settings, and credentials configurations are managed from your <strong>secure cloud database</strong>. This interface loads your client registry securely on dashboard initialization.
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button id="btnSyncCompanies" class="btn-primary" style="font-size:12px;padding:8px 16px;" onclick="refreshCompaniesFromSheet()">🔄 Sync from Cloud Database</button>
+        <a href="https://docs.google.com/spreadsheets/" target="_blank" class="btn-secondary" style="font-size:12px;padding:8px 16px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;">📋 Open Master Database</a>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:1.5rem;">
+      <div class="panel-header">
+        <div class="panel-title"><div class="dot"></div>Registered Client Registries (Live Sync Data)</div>
+      </div>
+      <div class="table-scroll">
+        <table class="company-table">
+          <thead>
+            <tr>
+              <th>Company Name</th>
+              <th>Contact</th>
+              <th>Login ID</th>
+              <th>📅 Subscription Period</th>
+              <th>Status</th>
+              <th>📞 Helpline</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="companyTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-section" id="sectionSubscriptions">
+    <div class="panel" style="margin-bottom:1.5rem;">
+      <div class="panel-header">
+        <div class="panel-title"><div class="dot" style="background:var(--gold)"></div>Global Subscription Configuration Tier Pricing Matrix</div>
+      </div>
+      <div class="price-edit-grid">
+        <div class="price-edit-card">
+          <div class="price-edit-label"><span class="plan-tag plan-monthly">Monthly Model</span></div>
+          <div class="field-group">
+            <label class="field-label">Rate (INR / Mo)</label>
+            <input type="number" class="field-input" id="priceBasic" value="2999">
+          </div>
+        </div>
+        <div class="price-edit-card">
+          <div class="price-edit-label"><span class="plan-tag plan-halfyearly">Half Yearly Model</span></div>
+          <div class="field-group">
+            <label class="field-label">Rate (INR / 6 Mo)</label>
+            <input type="number" class="field-input" id="pricePro" value="15999">
+          </div>
+        </div>
+        <div class="price-edit-card">
+          <div class="price-edit-label"><span class="plan-tag plan-yearly">Yearly Model</span></div>
+          <div class="field-group">
+            <label class="field-label">Rate (INR / Yr)</label>
+            <input type="number" class="field-input" id="priceEnterprise" value="29999">
+          </div>
+        </div>
+      </div>
+      <button class="btn-primary" onclick="updateSubscriptionRates()">¼ Globalize Pricing Settings</button>
+    </div>
+
+    <div class="sub-grid">
+      <div class="sub-card">
+        <div class="sub-plan-name">Monthly Frame Cycle</div>
+        <div class="sub-price-display" id="cardPriceBasic">₹2,999<span>/mo</span></div>
+      </div>
+      <div class="sub-card featured">
+        <div class="sub-plan-name">Half Yearly Bulk Run</div>
+        <div class="sub-price-display" id="cardPricePro">₹15,999<span>/6 mo</span></div>
+      </div>
+      <div class="sub-card">
+        <div class="sub-plan-name">Yearly Commitment Plan</div>
+        <div class="sub-price-display" id="cardPriceEnterprise">₹29,999<span>/yr</span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><div class="dot" style="background:var(--purple)"></div>👑 Owner Account Security Profile Management</div>
+      </div>
+      <div class="form-grid" style="margin-bottom: 1.5rem;">
+        <div class="field-group" style="grid-column: 1 / -1;">
+          <label class="field-label" style="color:var(--amber); font-weight:700;">🔑 Administrative Master Sync Token (API Passkey)</label>
+          <div class="input-password-wrapper">
+            <input type="password" class="field-input" id="ownerSyncTokenInput" placeholder="Enter the MASTER_SYNC_TOKEN set inside your Google Apps Script">
+            <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('ownerSyncTokenInput')">Show</button>
+          </div>
+          <span style="font-size:11px; color:var(--ink3); margin-top:4px; display:block;">Type your secret token here once. It safely locks data downloads so random script callers can't view client listings.</span>
+        </div>
+      </div>
+      <div style="padding:14px 16px;background:rgba(52,211,153,0.07);border:1px solid rgba(52,211,153,0.25);border-radius:12px;">
+        <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:6px;">🔗 Zero-Exposure Credentials Layer Activated</div>
+        <div style="font-size:12px;color:var(--ink2);line-height:1.7;">
+          Your login parameters are handled entirely on secure cloud environments. Raw passwords can no longer be scraped or harvested from the interface code layer. <br>
+          To update your administrator login account details, modify the matching index rows located inside your private cloud database context.
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn-primary" onclick="updateOwnerProfile()">📋 Open Credentials Sheet Workspace</button>
+          <button class="btn-secondary" onclick="saveMasterTokenLocal()">💾 Save Token to Local Device Storage</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div>System Infrastructure Active Status Dashboard</div>
+    <div>Session Secure Encrypted</div>
+  </div>
+</div>
+
+<div class="sub-expired-overlay" id="subExpiredPopup" style="display:none;">
+  <div class="sub-expired-box">
+    <div class="sub-expired-icon">⛔</div>
+    <div class="sub-expired-title">Subscription Expired</div>
+    <div class="sub-expired-msg">
+      Your subscription timeline has ended. Access parameters to the Stock Audit Workspace have been suspended.<br>
+      Please contact administration branches directly to coordinate active billing renewal pipelines.
+    </div>
+    <div class="helpline-call-box">
+      <div class="helpline-label">📞 Helpline / Support</div>
+      <div class="helpline-number" id="popupHelplineNumber">+91 98765 43210</div>
+    </div>
+    <a class="btn-call-now" id="btnCallNow" href="tel:+919876543210">📞 Call Now</a>
+    <div style="margin-top:1rem;">
+      <button onclick="doLogout()" style="background:none;border:none;color:var(--ink3);font-size:12px;cursor:pointer;text-decoration:underline;">Logout</button>
+    </div>
+  </div>
+</div>
+
+<div id="printSheetArea">
+  <div style="font-family:Arial,sans-serif;padding:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;border-bottom:2px solid #333;padding-bottom:12px;">
+      <div>
+        <div style="font-size:22px;font-weight:900;letter-spacing:-0.5px;">RATNE — STOCK COUNT SHEET</div>
+        <div style="font-size:12px;color:#555;margin-top:4px;" id="printZoneLabel"></div>
+      </div>
+      <div style="text-align:right;font-size:11px;color:#555;">
+        <div>Date: ____________________</div>
+        <div style="margin-top:6px;">Auditor: ____________________</div>
+        <div style="margin-top:6px;">Verified By: ____________________</div>
+      </div>
+    </div>
+    <table class="print-table" id="printTable">
+      <thead>
+        <tr>
+          <th style="width:30px;">#</th>
+          <th>SKU Code</th>
+          <th>Product Name</th>
+          <th>Brand</th>
+          <th>Book Qty</th>
+          <th style="width:100px;">Physical Count</th>
+          <th style="width:80px;">Variance</th>
+          <th>Remarks</th>
+        </tr>
+      </thead>
+      <tbody id="printTableBody"></tbody>
+    </table>
+    <div style="margin-top:20px;display:flex;justify-content:space-between;font-size:11px;color:#555;">
+      <div>Total SKUs: <span id="printTotalSKUs"></span></div>
+      <div>Generated: <span id="printGenTime"></span></div>
+      <div>Zone: <span id="printZoneName"></span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Dynamic Application Context Settings Configuration 
+let currentRole = 'owner'; 
+let currentCompanyUser = null; 
+let activeStoreKey = '';
+let currentCompanyNamespace = 'owner'; 
+let currentFilter = 'all';
+
+// ===== CURRENT LIVE PRODUCTION WEB APP ENDPOINT =====
+const GSHEET_AUTH_URL = 'https://script.google.com/macros/s/AKfycbwlXhLKOCTpUKkMqYmCKgIpU_MSz3oQ0RMY0ASGOWElg32_oRSIanP-cuuE0y3RKwnH/exec';
+
+let companies = [];
+let helplineNumber = '+91 98765 43210';
+let zoneMetadata = {};
+
+function getZoneMeta(zone) {
+  if (!zoneMetadata[currentCompanyNamespace]) zoneMetadata[currentCompanyNamespace] = {};
+  if (!zoneMetadata[currentCompanyNamespace][zone]) zoneMetadata[currentCompanyNamespace][zone] = { auditor: '', status: 'pending' };
+  return zoneMetadata[currentCompanyNamespace][zone];
+}
+
+let allDataStores = { 'owner': {} };
+
+function getDataStores() {
+  if(!allDataStores[currentCompanyNamespace]) allDataStores[currentCompanyNamespace] = {};
+  return allDataStores[currentCompanyNamespace];
+}
+
+let editingCompanyId = null;
+let donutChart = null;
+let barChart = null;
+let recountQueue = {}; 
+
+function getRecountBucket() {
+  if (!recountQueue[currentCompanyNamespace]) recountQueue[currentCompanyNamespace] = {};
+  return recountQueue[currentCompanyNamespace];
+}
+
+// ===== RUNTIME PERSISTENCE OPERATIONS =====
+function saveAllToStorage() {
+  try {
+    localStorage.setItem('ratne_allDataStores', JSON.stringify(allDataStores));
+    localStorage.setItem('ratne_companies', JSON.stringify(companies));
+    localStorage.setItem('ratne_recountQueue', JSON.stringify(recountQueue));
+    localStorage.setItem('ratne_helplineNumber', helplineNumber);
+    localStorage.setItem('ratne_zoneMetadata', JSON.stringify(zoneMetadata));
+    let _azm = JSON.parse(localStorage.getItem('ratne_activeZones') || '{}');
+    _azm[currentCompanyNamespace] = activeStoreKey;
+    localStorage.setItem('ratne_activeZones', JSON.stringify(_azm));
+  } catch(e) { console.error('Storage sync fault:', e); }
+}
+
+function loadAllFromStorage() {
+  try { const ds = localStorage.getItem('ratne_allDataStores'); if(ds) allDataStores = JSON.parse(ds); } catch(e) {}
+  try { const co = localStorage.getItem('ratne_companies'); if(co) companies = JSON.parse(co); } catch(e) {}
+  try { const rq = localStorage.getItem('ratne_recountQueue'); if(rq) recountQueue = JSON.parse(rq); } catch(e) {}
+  try { const hl = localStorage.getItem('ratne_helplineNumber'); if(hl) helplineNumber = hl; } catch(e) {}
+  try { const zm = localStorage.getItem('ratne_zoneMetadata'); if(zm) zoneMetadata = JSON.parse(zm); } catch(e) {}
+  
+  try {
+    const savedToken = localStorage.getItem('ratne_master_sync_token');
+    if(savedToken && document.getElementById('ownerSyncTokenInput')) {
+      document.getElementById('ownerSyncTokenInput').value = savedToken;
+    }
+  } catch(e) {}
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  loadAllFromStorage();
+  renderCompanyTable();
+  startLiveISTClock();
+
+  try {
+    const savedSession = sessionStorage.getItem('ratne_session');
+    if(savedSession) {
+      const sess = JSON.parse(savedSession);
+      if(sess.role === 'owner') {
+        executeSessionActivation('Owner Admin Dashboard', 'owner', null);
+      } else if(sess.role === 'company' && sess.cachedUserObj) {
+        executeSessionActivation(sess.cachedUserObj.name, 'company', sess.cachedUserObj);
+      }
+    }
+  } catch(e) {}
+});
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  if(msg) t.innerText = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function togglePasswordVisibility(fieldId) {
+  const el = document.getElementById(fieldId);
+  const btn = el.nextElementSibling;
+  if (el.type === 'password') {
+    el.type = 'text'; btn.innerText = 'Hide';
+  } else {
+    el.type = 'password'; btn.innerText = 'Show';
+  }
+}
+
+function startLiveISTClock() {
+  function updateClock() {
+    const d = new Date();
+    const optionsTime = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+    const optionsDate = { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' };
+    document.getElementById('istClock').innerText = d.toLocaleTimeString('en-US', optionsTime);
+    const rawDateStr = d.toLocaleDateString('en-IN', optionsDate); 
+    document.getElementById('istDate').innerText = rawDateStr.replace(/\//g, '-');
+  }
+  updateClock(); setInterval(updateClock, 1000);
+}
+
+function saveMasterTokenLocal() {
+  const val = document.getElementById('ownerSyncTokenInput').value.trim();
+  if(!val) { alert('Please input a token key.'); return; }
+  localStorage.setItem('ratne_master_sync_token', val);
+  showToast('🔑 Master Token Passkey cached on this local device memory.');
+}
+
+// ===== CORS SECURE AUTHENTICATION PIPELINE USING GET URL PARAMETERS =====
+async function doLogin() {
+  const u = document.getElementById('loginUsername').value.trim();
+  const p = document.getElementById('loginPassword').value;
+  const err = document.getElementById('errorMsg');
+  const btn = document.querySelector('.login-btn');
+
+  if(!u || !p) {
+    err.innerText = 'Please complete mandatory username and password specifications.';
+    err.classList.add('show'); return;
+  }
+
+  btn.innerText = '⏳ Executing Server Verification...';
+  btn.disabled = true;
+  err.classList.remove('show');
+
+  try {
+    const secureUrl = `${GSHEET_AUTH_URL}?username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}`;
+    
+    const response = await fetch(secureUrl, { method: "GET" });
+    const result = await response.json();
+    btn.innerText = '🔐 Verify & Login';
+    btn.disabled = false;
+
+    if (result.status === "success") {
+      const user = result.user;
+      if (user.role === 'owner') {
+        executeSessionActivation('Owner Admin Dashboard', 'owner', null);
+      } else {
+        const mappedCompany = {
+          id: user.username,
+          name: user.companyName,
+          contact: user.contact,
+          email: user.email,
+          subFrom: user.subFrom,
+          subTo: user.subTo,
+          helpline: user.helpline,
+          status: computeSubStatus(user.subFrom, user.subTo) || 'active'
+        };
+        executeSessionActivation(user.companyName, 'company', mappedCompany);
+      }
+    } else {
+      err.innerText = result.message || 'Verification failure. Validation mismatch parameters returned.';
+      err.classList.add('show');
+    }
+  } catch (e) {
+    btn.innerText = '🔐 Verify & Login';
+    btn.disabled = false;
+    err.innerText = 'Connection Interface Timeout. Server architecture unreachable.';
+    err.classList.add('show');
+    console.error(e);
+  }
+}
+
+// ===== SAFE CLOUD INVENTORY BACKEND SYNCHRONIZER PULL (MERGE, NOT OVERWRITE) =====
+// Merges the server's copy into the local copy item-by-item using `lastUpdated`
+// timestamps, so a count entered on Laptop A is never clobbered by a stale pull
+// on Laptop B, and vice-versa. Whichever side has the newer timestamp wins.
+async function fetchCloudInventoryLive() {
+  try {
+    const fetchUrl = `${GSHEET_AUTH_URL}?action=fetchCloudInventory&namespace=${encodeURIComponent(currentCompanyNamespace)}`;
+    const res = await fetch(fetchUrl, { method: "GET" });
+    const result = await res.json();
+
+    if (result.status === "success" && result.stores) {
+      const localStores = allDataStores[currentCompanyNamespace] || {};
+      const mergedStores = {};
+
+      // Clean up expired tombstones and rename-redirects
+      const nowMs = Date.now();
+      for (const [zName, expiry] of _tombstonedZones) { if (nowMs > expiry) _tombstonedZones.delete(zName); }
+      for (const [zName, info] of _zoneRenameRedirects) { if (nowMs > info.expiry) _zoneRenameRedirects.delete(zName); }
+
+      // If the server still has rows under an old (just-renamed) zone name —
+      // because our rename push hasn't landed yet — fold them into the new
+      // name instead of letting the old name reappear as a separate zone.
+      _zoneRenameRedirects.forEach((info, oldName) => {
+        if (result.stores[oldName]) {
+          result.stores[info.newName] = (result.stores[info.newName] || []).concat(result.stores[oldName]);
+          delete result.stores[oldName];
+        }
+      });
+
+      // Union of zone names that exist locally or on the server — minus anything
+      // we just intentionally deleted and is still within its tombstone window.
+      const allZoneNames = new Set([...Object.keys(localStores), ...Object.keys(result.stores)]);
+      _tombstonedZones.forEach((expiry, zName) => allZoneNames.delete(zName));
+
+      allZoneNames.forEach(zoneName => {
+        const localItems = localStores[zoneName] || [];
+        const remoteItems = result.stores[zoneName] || [];
+        const localBySku = {}; localItems.forEach(it => localBySku[it.sku] = it);
+        const remoteBySku = {}; remoteItems.forEach(it => remoteBySku[it.sku] = it);
+        const allSkus = new Set([...Object.keys(localBySku), ...Object.keys(remoteBySku)]);
+
+        mergedStores[zoneName] = Array.from(allSkus).map(sku => {
+          const l = localBySku[sku], r = remoteBySku[sku];
+          if (l && !r) return l;
+          if (r && !l) return r;
+          const lTime = l.lastUpdated ? new Date(l.lastUpdated).getTime() : 0;
+          const rTime = r.lastUpdated ? new Date(r.lastUpdated).getTime() : 0;
+          return rTime > lTime ? r : l;
+        });
+      });
+
+      allDataStores[currentCompanyNamespace] = mergedStores;
+
+      let keys = Object.keys(mergedStores);
+      if (keys.length > 0) {
+        let _azm = JSON.parse(localStorage.getItem('ratne_activeZones') || '{}');
+        activeStoreKey = _azm[currentCompanyNamespace] && mergedStores[_azm[currentCompanyNamespace]] ? _azm[currentCompanyNamespace] : keys[0];
+      } else {
+        activeStoreKey = '';
+      }
+      saveAllToStorage();
+      if (typeof initDashboardAnalytics === 'function' && document.getElementById('mainApp') && document.getElementById('mainApp').style.display !== 'none') {
+        initDashboardAnalytics(); renderZoneManager();
+      }
+    }
+  } catch(err) {
+    console.error("Cloud stock pull disrupted: ", err);
+  }
+}
+
+// ===== PUSH LOCAL COUNT CHANGES UP TO THE CLOUD (so other devices can merge them in) =====
+let _countsSyncTimer = null;
+function queueInventoryCountsSync() {
+  clearTimeout(_countsSyncTimer);
+  _countsSyncTimer = setTimeout(() => { pushInventoryCountsToCloud(activeStoreKey); }, 1200);
+}
+
+let _zoneOperationLocks = new Set(); // zone names currently mid rename/delete — pushes are paused for these
+
+async function pushInventoryCountsToCloud(zoneName) {
+  const items = getDataStores()[zoneName];
+  if (!zoneName || !items || !items.length) return;
+  if (_zoneOperationLocks.has(zoneName)) return; // a rename/delete is in progress for this zone — hold off
+  try {
+    const response = await fetch(GSHEET_AUTH_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        action: "syncInventoryCounts",
+        namespace: currentCompanyNamespace,
+        zone: zoneName,
+        items: items
+      })
+    });
+    const result = await response.json();
+    if (result.status === "success" && result.items) {
+      // Server returns its merged copy of this zone — reconcile locally too,
+      // in case a second device pushed in between.
+      const localBySku = {}; (getDataStores()[zoneName] || []).forEach(it => localBySku[it.sku] = it);
+      result.items.forEach(r => {
+        const l = localBySku[r.sku];
+        const lTime = l && l.lastUpdated ? new Date(l.lastUpdated).getTime() : 0;
+        const rTime = r.lastUpdated ? new Date(r.lastUpdated).getTime() : 0;
+        if (l && rTime > lTime) Object.assign(l, r);
+      });
+      saveAllToStorage();
+    }
+  } catch(err) {
+    console.error("Count push to cloud failed (will retry on next sync): ", err);
+  }
+}
+
+// ===== BACKGROUND AUTO-SYNC — keeps two devices on the same login converged =====
+let _bgSyncInterval = null;
+function startBackgroundInventorySync() {
+  if (_bgSyncInterval) return;
+  _bgSyncInterval = setInterval(async () => {
+    if (document.hidden || !currentRole) return; // don't sync a backgrounded tab or after logout
+    await pushInventoryCountsToCloud(activeStoreKey);
+    await fetchCloudInventoryLive();
+  }, 25000); // every 25s
+
+  // Also sync immediately whenever the auditor switches back to this tab/device
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && currentRole) {
+      pushInventoryCountsToCloud(activeStoreKey).then(fetchCloudInventoryLive);
+    }
+  });
+}
+
+function stopBackgroundInventorySync() {
+  if (_bgSyncInterval) { clearInterval(_bgSyncInterval); _bgSyncInterval = null; }
+}
+
+async function manualSyncNow() {
+  const btn = document.getElementById('btnSyncCounts');
+  if (btn) { btn.innerText = '⏳ Syncing...'; btn.disabled = true; }
+  await pushInventoryCountsToCloud(activeStoreKey);
+  await fetchCloudInventoryLive();
+  if (btn) { btn.innerText = '🔄 Sync Counts'; btn.disabled = false; }
+  showToast('☁️ Counts synced with cloud database.');
+}
+
+async function executeSessionActivation(displayName, role, companyObj) {
+  // Keep app hidden until ALL role-based UI is fully applied — prevents owner flash for company users
+  document.getElementById('loginOverlay').classList.add('hidden');
+  document.getElementById('mainApp').style.display = 'none';
+
+  currentRole = role;
+  currentCompanyUser = companyObj;
+  currentCompanyNamespace = role === 'owner' ? 'owner' : (companyObj ? companyObj.id : 'owner');
+
+  try {
+    sessionStorage.setItem('ratne_session', JSON.stringify({
+      role,
+      companyId: companyObj ? companyObj.id : null,
+      cachedUserObj: companyObj
+    }));
+  } catch(e) {}
+
+  await fetchCloudInventoryLive();
+  startBackgroundInventorySync();
+
+  if(role === 'owner') {
+    const savedToken = localStorage.getItem('ratne_master_sync_token');
+    if(savedToken && document.getElementById('ownerSyncTokenInput')) {
+      document.getElementById('ownerSyncTokenInput').value = savedToken;
+    }
+  }
+
+  let _hb = document.getElementById('helplineBanner');
+  if(role === 'owner') {
+    document.getElementById('userBadgeName').innerText = 'Owner Admin Dashboard';
+    const pill = document.getElementById('userBadgePill');
+    pill.className = 'owner-badge-pill'; pill.innerText = '👑 System Owner';
+    document.querySelectorAll('.owner-only').forEach(x => x.style.display = 'block');
+    document.getElementById('auditContent').style.display = 'block';
+    document.getElementById('subBlockedMsg').style.display = 'none';
+    if(_hb) _hb.style.display = 'none';
+  } else {
+    document.getElementById('userBadgeName').innerText = displayName;
+    const pill = document.getElementById('userBadgePill');
+    pill.className = 'company-badge-pill'; pill.innerText = '🏢 ' + displayName;
+    // Hide owner-only tabs BEFORE revealing the app
+    document.querySelectorAll('.owner-only').forEach(x => x.style.display = 'none');
+
+    let _hl = (companyObj && companyObj.helpline) ? companyObj.helpline : helplineNumber;
+    updateHelplineBannerWith(_hl);
+    if(_hb) _hb.style.display = 'flex';
+
+    checkAndShowExpiryForCompany(companyObj);
+    if(companyObj && companyObj.status === 'inactive') {
+      document.getElementById('auditContent').style.display = 'none';
+    } else {
+      document.getElementById('auditContent').style.display = 'block';
+    }
+  }
+  switchTab('audit');
+  populateWarehouseDropdown();
+  renderZoneManager();
+  initZoneManagerListeners();
+  initDashboardAnalytics();
+
+  // Reveal the fully-prepared dashboard in one shot — no flash
+  document.getElementById('mainApp').style.display = 'block';
+}
+
+function doLogout() {
+  sessionStorage.removeItem('ratne_session');
+  currentRole = null; currentCompanyUser = null; currentCompanyNamespace = 'owner';
+  const _popup = document.getElementById('subExpiredPopup');
+  if(_popup) _popup.style.display = 'none';
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('loginOverlay').classList.remove('hidden');
+  document.getElementById('loginPassword').value = '';
+  document.getElementById('loginUsername').value = '';
+}
+
+function updateOwnerProfile() {
+  alert('Administrative parameters are securely locked to cloud database structures. Editing matching layout tables will update node validations dynamically.');
+  window.open('https://docs.google.com/spreadsheets/', '_blank');
+}
+
+function switchTab(id) {
+  document.querySelectorAll('.main-tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.tab-section').forEach(x => x.classList.remove('active'));
+  const targetBtn = document.getElementById('tab' + id.charAt(0).toUpperCase() + id.slice(1));
+  if(targetBtn) targetBtn.classList.add('active');
+  const targetSec = document.getElementById('section' + id.charAt(0).toUpperCase() + id.slice(1));
+  if(targetSec) targetSec.classList.add('active');
+}
+
+function updateSubscriptionRates() {
+  const b = parseFloat(document.getElementById('priceBasic').value) || 0;
+  const p = parseFloat(document.getElementById('pricePro').value) || 0;
+  const e = parseFloat(document.getElementById('priceEnterprise').value) || 0;
+  document.getElementById('cardPriceBasic').innerHTML = `₹${b.toLocaleString('en-IN')}<span>/mo</span>`;
+  document.getElementById('cardPricePro').innerHTML = `₹${p.toLocaleString('en-IN')}<span>/6 mo</span>`;
+  document.getElementById('cardPriceEnterprise').innerHTML = `₹${e.toLocaleString('en-IN')}<span>/yr</span>`;
+  showToast('Global pricing models initialized.');
+}
+
+function renderCompanyTable() {
+  let body = document.getElementById('companyTableBody');
+  if(!body) return;
+  if(!companies.length) {
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--ink3);padding:2rem;font-size:13px;">No companies cached. Initialize synchronization mapping below.</td></tr>';
+    return;
+  }
+  body.innerHTML = companies.map(function(x) {
+    let effStatus  = computeSubStatus(x.subFrom, x.subTo) || x.status || 'active';
+    let hl         = x.helpline || helplineNumber;
+    let daysLeft   = getDaysLeft(x.subTo);
+    let periodHtml = '';
+    if(x.subFrom || x.subTo) {
+      periodHtml  = '<span style="font-size:12px;font-family:monospace;">' + formatDate(x.subFrom) + '</span>' +
+                    '<span style="color:var(--ink3);margin:0 4px;">→</span>' +
+                    '<span style="font-size:12px;font-family:monospace;">' + formatDate(x.subTo) + '</span>';
+      if(x.subTo) {
+        if(daysLeft < 0)       periodHtml += '<br><span style="color:var(--red);font-size:10px;font-weight:700;">⛔ Expired</span>';
+        else if(daysLeft <= 7) periodHtml += '<br><span style="color:var(--amber);font-size:10px;font-weight:700;">⚠ ' + daysLeft + ' days remaining</span>';
+        else                   periodHtml += '<br><span style="color:var(--green);font-size:10px;">' + daysLeft + ' days calculation</span>';
+      }
+    } else { periodHtml = '<span style="color:var(--ink3);font-size:11px;">No timeline metadata</span>'; }
+    let statusColor = effStatus === 'active' ? 'var(--green)' : effStatus === 'trial' ? 'var(--amber)' : 'var(--red)';
+    let statusBg    = effStatus === 'active' ? 'rgba(52,211,153,0.12)' : effStatus === 'trial' ? 'rgba(251,191,36,0.12)' : 'rgba(248,113,113,0.12)';
+    return '<tr>' +
+      '<td style="font-weight:700;color:var(--ink);">' + x.name + '</td>' +
+      '<td style="color:var(--ink2);">' + (x.contact || '—') + '</td>' +
+      '<td style="font-family:monospace;color:var(--accent2);font-weight:600;">' + x.id + '</td>' +
+      '<td>' + periodHtml + '</td>' +
+      '<td><span style="display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;background:' + statusBg + ';color:' + statusColor + ';border:1px solid ' + statusColor + ';">' + effStatus.toUpperCase() + '</span></td>' +
+      '<td style="font-family:monospace;font-size:12px;color:var(--green);">' + hl + '</td>' +
+      '<td style="white-space:nowrap;">' +
+        '<button class="action-btn" onclick="openEditModal(\'' + x.id + '\')">✏️ View details</button> ' +
+        '<button class="action-btn danger" onclick="deleteCompanyLocal(\'' + x.id + '\')">🗑️ Unlink Local</button>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function formatDate(d) {
+  if(!d) return '—'; let parts = d.split('-'); if(parts.length !== 3) return d;
+  let months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return parts[2] + ' ' + (months[parseInt(parts[1],10)-1]||'') + ' ' + parts[0];
+}
+
+function deleteCompanyLocal(id) {
+  if(confirm('Disconnect local view cache alignment for this entity record? Permanent deletes require modifying your underlying sheet.')) {
+    companies = companies.filter(x => x.id !== id); renderCompanyTable(); saveAllToStorage();
+  }
+}
+
+function openEditModal(id) {
+  const comp = companies.find(x => x.id === id); if(!comp) return;
+  editingCompanyId = id;
+  document.getElementById('editCompanyName').value = comp.name;
+  document.getElementById('editContactPerson').value = comp.contact || '';
+  document.getElementById('editLoginId').value = comp.id;
+  document.getElementById('editStatus').value = comp.status || 'active';
+  document.getElementById('editEmail').value = comp.email || '';
+  document.getElementById('editCompanyOverlay').classList.remove('hidden');
+}
+
+function closeEditModal() { document.getElementById('editCompanyOverlay').classList.add('hidden'); editingCompanyId = null; }
+
+function saveEditCompany() {
+  const comp = companies.find(x => x.id === editingCompanyId);
+  if(!comp) return;
+  comp.name    = document.getElementById('editCompanyName').value.trim();
+  comp.contact = document.getElementById('editContactPerson').value.trim();
+  comp.status  = document.getElementById('editStatus').value;
+  comp.email   = document.getElementById('editEmail').value.trim();
+  renderCompanyTable(); closeEditModal(); saveAllToStorage();
+  showToast('Local cache profile representation updated.');
+}
+
+function populateWarehouseDropdown() {
+  const sel = document.getElementById('warehouseSelect');
+  sel.innerHTML = Object.keys(getDataStores()).map(x => `<option value="${x}">${x}</option>`).join('');
+  if(!getDataStores()[activeStoreKey]) activeStoreKey = Object.keys(getDataStores())[0] || '';
+  sel.value = activeStoreKey;
+}
+
+function switchWarehouse() {
+  activeStoreKey = document.getElementById('warehouseSelect').value;
+  resetAuditInputForm(); initDashboardAnalytics(); saveAllToStorage();
+}
+
+function handleSkuAutoSearch() {
+  const val = document.getElementById('searchSkuInput').value.trim().toUpperCase();
+  const db = getDataStores()[activeStoreKey] || [];
+  const matchedItem = db.find(x => x.sku.toUpperCase() === val);
+
+  if(matchedItem) {
+    document.getElementById('formProductName').value = matchedItem.name;
+    document.getElementById('formProductBrand').value = matchedItem.brand;
+    document.getElementById('formProductPrice').value = '₹' + matchedItem.price.toLocaleString('en-IN');
+    document.getElementById('formSystemQty').value = matchedItem.bookQty;
+    document.getElementById('formCurrentPhysicalQty').value = matchedItem.physicalQty;
+  } else {
+    document.getElementById('formProductName').value = '';
+    document.getElementById('formProductBrand').value = '';
+    document.getElementById('formProductPrice').value = '';
+    document.getElementById('formSystemQty').value = '';
+    document.getElementById('formCurrentPhysicalQty').value = '';
+  }
+}
+
+function submitAuditRecord() {
+  const skuVal = document.getElementById('searchSkuInput').value.trim().toUpperCase();
+  const adjustmentQty = parseInt(document.getElementById('formPhysicalQtyInput').value);
+  const mode = document.getElementById('auditActionMode').value;
+  const reasonCode = document.getElementById('discReasonCode').value;
+  const recountFlag = document.getElementById('recountFlagCheck').checked;
+  const _zoneMeta = getZoneMeta(activeStoreKey);
+  const auditorName = (_zoneMeta && _zoneMeta.auditor) ? _zoneMeta.auditor : 'Floor Auditor';
+  
+  const db = getDataStores()[activeStoreKey] || [];
+  const targetItem = db.find(x => x.sku.toUpperCase() === skuVal);
+
+  if(!targetItem) { alert('Target SKU mapping assignment error.'); return; }
+  if(isNaN(adjustmentQty) || adjustmentQty < 0) { alert('Operational inventory increments must contain absolute integers.'); return; }
+
+  let priorQty = targetItem.physicalQty;
+  if(mode === 'set') targetItem.physicalQty = adjustmentQty;
+  else if(mode === 'add') targetItem.physicalQty += adjustmentQty;
+  else if(mode === 'sub') targetItem.physicalQty = Math.max(0, targetItem.physicalQty - adjustmentQty);
+
+  if(reasonCode) targetItem.reasonCode = reasonCode;
+  targetItem.lastUpdated = new Date().toISOString();
+  pushLogEntry(targetItem.sku, mode, priorQty, targetItem.physicalQty, auditorName, reasonCode);
+
+  if(recountFlag) {
+    flagForRecount(targetItem.sku, targetItem.name, reasonCode || 'Verification run marked');
+    document.getElementById('recountFlagCheck').checked = false;
+  }
+  
+  initDashboardAnalytics(); resetAuditInputForm();
+  document.getElementById('discReasonCode').value = '';
+  saveAllToStorage();
+  queueInventoryCountsSync();
+  showToast('Inventory registers mapped successfully.');
+}
+
+function pushLogEntry(sku, mode, from, to, auditor, reason) {
+  const container = document.getElementById('logContainer');
+  if(container.querySelector('div[style*="color:var(--ink3)"]')) container.innerHTML = '';
+  const timestamp = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata' });
+  const log = document.createElement('div'); log.className = 'log-row';
+  log.innerHTML = `<span><span style="color:var(--accent2); font-size:10px;">[${auditor}]</span> ⚡ SKU <strong>${sku}</strong> [${mode.toUpperCase()}] (${from} ➔ ${to})${reason ? ' — ' + reason : ''}</span><span class="log-time">${timestamp} (IST)</span>`;
+  container.insertBefore(log, container.firstChild);
+}
+
+function clearAllFloorCounts() {
+  if(confirm('Wipe tracked metrics configurations completely inside this active node context?')) {
+    const _now = new Date().toISOString();
+    (getDataStores()[activeStoreKey] || []).forEach(x => { x.physicalQty = 0; x.lastUpdated = _now; });
+    initDashboardAnalytics(); resetAuditInputForm(); saveAllToStorage();
+    queueInventoryCountsSync();
+  }
+}
+
+function resetAuditInputForm() {
+  document.getElementById('searchSkuInput').value = '';
+  document.getElementById('formPhysicalQtyInput').value = '';
+  handleSkuAutoSearch();
+}
+
+function setFilter(f) {
+  currentFilter = f;
+  ['fAll','fMatched','fDiscrep'].forEach(x => document.getElementById(x).classList.remove('active'));
+  if(f==='all') document.getElementById('fAll').classList.add('active');
+  if(f==='matched') document.getElementById('fMatched').classList.add('active');
+  if(f==='discrepant') document.getElementById('fDiscrep').classList.add('active');
+  renderAuditTable();
+}
+
+// ===== BULK PUSH CSV MASTER RECORDS LIVE TO THE INVENTORY SHEET =====
+async function pushCSVMasterToCloudSheet(zoneName, rowsArray) {
+  showToast("⏳ Uploading master records to cloud database...");
+  try {
+    const response = await fetch(GSHEET_AUTH_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        action: "uploadInventoryCSV",
+        namespace: currentCompanyNamespace,
+        zone: zoneName,
+        items: rowsArray
+      })
+    });
+    const result = await response.json();
+    if(result.status === "success") {
+      showToast("☁️ Live Cloud Stock Sync Completed!");
+    } else {
+      alert("❌ Cloud Write Failed: " + result.message);
+    }
+  } catch(err) {
+    alert("❌ Network Error: Could not push CSV master data up to cloud servers.");
+    console.error(err);
+  }
+}
+
+function handleCSVUpload(event) {
+  const file = event.target.files[0]; if(!file) return;
+
+  if (file.size > 2 * 1024 * 1024) { 
+    alert("❌ Data Payload Constraint: CSV sizing parameters exceed 2MB ceiling bounds.");
+    event.target.value = ''; return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const txt = e.target.result;
+    const lines = txt.split('\n').map(x => x.trim()).filter(x => x.length > 0);
+    if(lines.length <= 1) { alert('Structural execution error: Structured headers data row fault.'); return; }
+
+    if (lines.length > 3000) { 
+      alert("❌ Allocation Array Protection: Record limit capped at 3,000 index allocations items per active zone partition grid.");
+      event.target.value = ''; return;
+    }
+
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const skuIdx = headers.indexOf('sku'), nameIdx = headers.indexOf('name'), brandIdx = headers.indexOf('brand'), bookQtyIdx = headers.indexOf('bookqty'), priceIdx = headers.indexOf('price');
+
+    if(skuIdx === -1 || nameIdx === -1 || bookQtyIdx === -1 || priceIdx === -1) {
+      alert('Mapping blueprint schema trace mismatch error. Missing standard components: SKU, Name, BookQty, Price'); return;
+    }
+
+    const parsedRows = [];
+    const maxIdxNeeded = Math.max(skuIdx, nameIdx, brandIdx, bookQtyIdx, priceIdx);
+    let skippedRows = 0;
+    for(let i = 1; i < lines.length; i++){
+      try {
+        const tokens = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+        // NOTE: indices are 0-based, so we need STRICTLY MORE tokens than the
+        // highest index required (>=  here would let a short row through and
+        // crash on tokens[maxIdx].replace() being undefined).
+        if(tokens.length > maxIdxNeeded) {
+          parsedRows.push({
+            sku: tokens[skuIdx].replace(/"/g, '').trim(),
+            name: tokens[nameIdx].replace(/"/g, '').trim(),
+            brand: brandIdx !== -1 ? tokens[brandIdx].replace(/"/g, '').trim() : 'Generic Master',
+            bookQty: parseInt(tokens[bookQtyIdx].replace(/"/g, '').replace(/,/g, '').trim()) || 0,
+            physicalQty: 0, 
+            price: parseFloat(tokens[priceIdx].replace(/"/g, '').replace(/,/g, '').trim()) || 0
+          });
+        } else {
+          skippedRows++;
+        }
+      } catch(rowErr) {
+        skippedRows++;
+        console.warn('Skipped malformed CSV row ' + (i+1) + ':', rowErr);
+      }
+    }
+    if(skippedRows > 0) {
+      showToast(`⚠️ Skipped ${skippedRows} malformed row(s) — check your CSV formatting.`);
+    }
+
+    if(parsedRows.length > 0) {
+      let targetZoneName = "Zone-1 (Imported)"; let counter = 1;
+      while(getDataStores()[targetZoneName] !== undefined) { counter++; targetZoneName = `Zone-${counter} (Imported)`; }
+      
+      getDataStores()[targetZoneName] = parsedRows; activeStoreKey = targetZoneName;
+      _tombstonedZones.delete(targetZoneName); // this zone is being intentionally (re)created — cancel any pending deletion hold
+
+      // TRIGGER BULK POST ENGINE SYNC DUMP INTO CLOUD SHEET TAB 
+      pushCSVMasterToCloudSheet(targetZoneName, parsedRows);
+
+      populateWarehouseDropdown(); renderZoneManager(); initDashboardAnalytics(); saveAllToStorage();
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function exportAuditReport() {
+  let csv = 'data:text/csv;charset=utf-8,SKU,Name,Brand,Book Qty,Physical Qty,Variance,Unit Price,Value Impact,Reason Code\n';
+  (getDataStores()[activeStoreKey]||[]).forEach(x => {
+    let v = x.physicalQty - x.bookQty;
+    csv += `"${x.sku}","${x.name}","${x.brand}",${x.bookQty},${x.physicalQty},${v},${x.price},${v * x.price},"${x.reasonCode || ''}"\n`;
+  });
+  const encodedUri = encodeURI(csv); const link = document.createElement("a");
+  link.setAttribute("href", encodedUri); link.setAttribute("download", `Audit_Report_${activeStoreKey}.csv`);
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+}
+
+// ===== FIXED STABLE CLOUD PROFILE SYNCHRONIZATION RUNTIME =====
+async function refreshCompaniesFromSheet() {
+  let btn = document.getElementById('btnSyncCompanies');
+  if(btn) { btn.innerText = '⏳ Syncing Matrix Engine Profiles...'; btn.disabled = true; }
+  
+  const deviceToken = localStorage.getItem('ratne_master_sync_token') || "";
+  
+  if(!deviceToken) {
+    alert("❌ Access Denied: No Master Sync Token found on this device. Please enter and save your token passkey under the 'Rates & Profile' tab first.");
+    if(btn) { btn.innerText = '🔄 Sync from Cloud Database'; btn.disabled = false; }
+    return;
+  }
+
+  try {
+    const syncUrl = `${GSHEET_AUTH_URL}?action=getCompaniesListSync&token=${encodeURIComponent(deviceToken)}`;
+    
+    const response = await fetch(syncUrl, { 
+      method: "GET",
+      mode: "cors"
+    });
+    
+    const result = await response.json();
+    
+    if(result.status === "success" && result.data) {
+      companies = result.data;
+      renderCompanyTable();
+      saveAllToStorage();
+      showToast('✅ Company profiles updated from cloud database successfully!');
+    } else {
+      alert("🔒 Server Rejection: " + (result.message || "Invalid Authorization Token key structure provided."));
+    }
+  } catch(e) { 
+    showToast('❌ Link Interface Error. Verify network node mapping connections.'); 
+    console.error("Sync process execution crash details: ", e);
+  }
+  if(btn) { btn.innerText = '🔄 Sync from Cloud Database'; btn.disabled = false; }
+}
+
+function showSubscriptionExpiredPopup(companyHelpline) {
+  const popup = document.getElementById('subExpiredPopup');
+  const numEl = document.getElementById('popupHelplineNumber');
+  const callBtn = document.getElementById('btnCallNow');
+  const hl = companyHelpline || helplineNumber;
+  if(numEl) numEl.innerText = hl;
+  if(callBtn) callBtn.href = 'tel:' + hl.replace(/[^0-9+]/g, '');
+  if(popup) popup.style.display = 'flex';
+}
+
+function updateHelplineBannerWith(hl) {
+  let el = document.getElementById('helplineBannerNumber');
+  let btn = document.getElementById('helplineBannerBtn');
+  if(el) el.innerText = hl; if(btn) btn.href = 'tel:' + hl.replace(/[^0-9+]/g, '');
+  let pn = document.getElementById('popupHelplineNumber');
+  let pb = document.getElementById('btnCallNow');
+  if(pn) pn.innerText = hl; if(pb) pb.href = 'tel:' + hl.replace(/[^0-9+]/g, '');
+}
+
+function renderZoneManager() {
+  let grid = document.getElementById('zoneCardsGrid');
+  let bar = document.getElementById('zoneSummaryBar'); if(!grid) return;
+  let stores = getDataStores(); let zones = Object.keys(stores);
+  let total = zones.length, done = zones.filter(z => getZoneMeta(z).status === 'done').length;
+  let inprog = zones.filter(z => getZoneMeta(z).status === 'inprogress').length, pending = zones.filter(z => getZoneMeta(z).status === 'pending').length;
+  
+  if(bar) bar.innerHTML = `<div class="zone-summary-item accent"><strong>${total}</strong> Total Allocation Clusters</div><div class="zone-summary-item green"><strong>${done}</strong> Completed Verified</div><div class="zone-summary-item amber"><strong>${inprog}</strong> In Progress Operations</div><div class="zone-summary-item"><strong>${pending}</strong> Queue Unresolved</div>`;
+  if(!zones.length) { grid.innerHTML = '<div style="color:var(--ink3); font-size:12px; padding:1rem 0;">No active layouts loaded. Upload a master CSV file above to synchronize rows array live.</div>'; return; }
+  
+  grid.innerHTML = zones.map(function(zone) {
+    let meta = getZoneMeta(zone), items = stores[zone] || [], counted = items.filter(x => x.physicalQty > 0).length;
+    let pct = items.length ? Math.round(counted / items.length * 100) : 0, isActive = zone === activeStoreKey;
+    return `<div class="zone-card ${isActive?'active-zone':meta.status==='done'?'zone-done':meta.status==='inprogress'?'zone-inprogress':''}" data-zone="${zone}"><div class="zone-card-header"><div class="zone-card-name">&#128230; ${zone}</div><span class="zone-status-pill ${meta.status==='done'?'done':meta.status==='inprogress'?'inprogress':'pending'}">${meta.status==='done'?'&#9989; Done':meta.status==='inprogress'?'&#9203; In Progress':'&#9208; Pending'}</span></div><div class="zone-card-meta">${items.length} Tracking SKUs &nbsp;|&nbsp; ${counted} Logged (${pct}%)</div><div class="zone-auditor-row"><span class="zone-auditor-lbl">&#128100; Operator:</span><input class="zone-auditor-inp" data-zone-input="1" placeholder="Assign dynamic clearance key..." value="${meta.auditor || ''}"></div><div class="zone-card-btns"><button class="btn-zone-go ${isActive?'current':''}" data-action="select">${isActive?'&#9654; Active Zone':'&#9654; Open Partition'}</button><button class="btn-zone-complete ${meta.status==='done'?'marked':''}" data-action="done">${meta.status==='done'?'&#9989; Completed':'&#10004; Check Out Done'}</button><button class="btn-zone-rename" data-action="rename" title="Rename zone">&#9998;</button><button class="btn-zone-del" data-action="delete">&#128465;</button></div></div>`;
+  }).join('');
+}
+
+let _zoneListenersAttached = false;
+function initZoneManagerListeners() {
+  if(_zoneListenersAttached) return; _zoneListenersAttached = true;
+  let g = document.getElementById('zoneCardsGrid'); if(!g) return;
+  g.addEventListener('click', function(e) {
+    let card = e.target.closest('[data-zone]'); if(!card) return;
+    let z = card.dataset.zone, action = e.target.dataset.action;
+    if(action === 'select') selectZone(z); else if(action === 'done') toggleZoneDone(z); else if(action === 'rename') renameZone(z); else if(action === 'delete') deleteZone(z);
+  });
+  g.addEventListener('input', function(e) {
+    if(e.target.dataset.zoneInput) {
+      let card = e.target.closest('[data-zone]'); if(card) setZoneAuditor(card.dataset.zone, e.target.value);
+    }
+  });
+}
+
+function selectZone(zone) {
+  activeStoreKey = zone; let meta = getZoneMeta(zone); if(meta.status === 'pending') meta.status = 'inprogress';
+  saveAllToStorage(); renderZoneManager(); initDashboardAnalytics(); showToast('Active frame focus updated: ' + zone);
+}
+
+let _auditorSaveTimer = null;
+function setZoneAuditor(zone, name) {
+  getZoneMeta(zone).auditor = name; clearTimeout(_auditorSaveTimer);
+  _auditorSaveTimer = setTimeout(function() { saveAllToStorage(); }, 800);
+}
+
+function toggleZoneDone(zone) {
+  let meta = getZoneMeta(zone); meta.status = (meta.status === 'done') ? 'inprogress' : 'done';
+  saveAllToStorage(); renderZoneManager(); initDashboardAnalytics();
+}
+
+let _tombstonedZones = new Map(); // zoneName -> expiry timestamp (ms). Prevents a racing pull from resurrecting a just-deleted zone.
+let _zoneRenameRedirects = new Map(); // oldName -> { newName, expiry } — redirects a lagging remote pull to the new name instead of resurrecting the old one.
+
+async function renameZone(oldName) {
+  const rawInput = prompt('Enter the new name for this zone:', oldName);
+  if (rawInput === null) return; // cancelled
+  const newName = rawInput.trim();
+  if (!newName) { alert('Zone name cannot be empty.'); return; }
+  if (newName === oldName) return;
+  if (getDataStores()[newName] !== undefined) { alert(`A zone named "${newName}" already exists. Please choose a different name.`); return; }
+
+  const store = getDataStores();
+  store[newName] = store[oldName];
+  delete store[oldName];
+
+  if (zoneMetadata[currentCompanyNamespace]) {
+    zoneMetadata[currentCompanyNamespace][newName] = zoneMetadata[currentCompanyNamespace][oldName] || { auditor: '', status: 'pending' };
+    delete zoneMetadata[currentCompanyNamespace][oldName];
+  }
+
+  const bucket = getRecountBucket();
+  if (bucket[oldName]) { bucket[newName] = bucket[oldName]; delete bucket[oldName]; }
+
+  if (activeStoreKey === oldName) activeStoreKey = newName;
+
+  // Guard against a racing background pull recreating the old name before the
+  // cloud rename finishes, same protection used for zone deletion.
+  _tombstonedZones.set(oldName, Date.now() + 120000);
+  _zoneRenameRedirects.set(oldName, { newName: newName, expiry: Date.now() + 120000 });
+  _tombstonedZones.delete(newName); // in case newName matches a zone recently deleted — don't let it vanish again
+  _zoneOperationLocks.add(oldName); _zoneOperationLocks.add(newName);
+
+  saveAllToStorage(); populateWarehouseDropdown(); renderZoneManager(); initDashboardAnalytics();
+  showToast(`✏️ Zone renamed to "${newName}"`);
+
+  const ok = await pushZoneRenameToCloud(oldName, newName);
+  if (!ok) {
+    showToast(`⚠️ Cloud rename failed for "${oldName}" → "${newName}" — try again to retry the cloud update.`);
+  }
+  _zoneOperationLocks.delete(oldName); _zoneOperationLocks.delete(newName);
+}
+
+async function pushZoneRenameToCloud(oldName, newName) {
+  try {
+    const response = await fetch(GSHEET_AUTH_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "renameZone", namespace: currentCompanyNamespace, oldZone: oldName, newZone: newName })
+    });
+    const result = await response.json();
+    if (result.status !== "success") { console.warn("Cloud zone rename issue:", result.message); return false; }
+    return true;
+  } catch(err) { console.error("pushZoneRenameToCloud error:", err); return false; }
+}
+
+async function deleteZone(zone) {
+  if(!confirm('Purge mapping structure completely? This will also permanently delete the zone from cloud database.')) return;
+  delete getDataStores()[zone]; if(zoneMetadata[currentCompanyNamespace]) delete zoneMetadata[currentCompanyNamespace][zone];
+  let keys = Object.keys(getDataStores()); activeStoreKey = keys.length ? keys[0] : '';
+  _tombstonedZones.set(zone, Date.now() + 120000); // hold for 2 minutes — covers any in-flight/racing pull
+  _zoneOperationLocks.add(zone);
+  saveAllToStorage(); populateWarehouseDropdown(); renderZoneManager(); initDashboardAnalytics();
+  showToast("🗑️ Zone deleted successfully!");
+  const ok = await pushZoneDeletionToCloud(zone);
+  if (!ok) {
+    showToast("⚠️ Cloud delete failed for '" + zone + "' — it may reappear on next sync. Try deleting again.");
+  }
+  _zoneOperationLocks.delete(zone);
+}
+
+async function pushZoneDeletionToCloud(zoneName) {
+  try {
+    const response = await fetch(GSHEET_AUTH_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "deleteZone", namespace: currentCompanyNamespace, zone: zoneName })
+    });
+    const result = await response.json();
+    if(result.status !== "success") { console.warn("Cloud zone delete issue:", result.message); return false; }
+    return true;
+  } catch(err) { console.error("pushZoneDeletionToCloud error:", err); return false; }
+}
+
+function computeSubStatus(subFrom, subTo) {
+  if(!subFrom && !subTo) return null;
+  let today = new Date(); today.setHours(0,0,0,0);
+  let from = subFrom ? new Date(subFrom) : null, to = subTo ? new Date(subTo) : null;
+  if(to && today > to) return 'inactive'; if(from && today < from) return 'trial';
+  return 'active';
+}
+
+function getDaysLeft(subTo) {
+  if(!subTo) return null; let today = new Date(); today.setHours(0,0,0,0);
+  return Math.ceil((new Date(subTo) - today) / 86400000);
+}
+
+function checkAndShowExpiryForCompany(compObj) {
+  if(!compObj) return;
+  let effStatus = computeSubStatus(compObj.subFrom, compObj.subTo) || compObj.status;
+  if(effStatus === 'inactive') { showSubscriptionExpiredPopup(compObj.helpline); }
+}
+
+document.addEventListener('keydown', function(e) {
+  if(e.key === 'Enter') {
+    const overlay = document.getElementById('loginOverlay');
+    if(!overlay.classList.contains('hidden')) doLogin();
+  }
+});
+
+function updateProgressTracker() {
+  const data = getDataStores()[activeStoreKey] || [];
+  const total = data.length, counted = data.filter(x => x.physicalQty > 0).length;
+  const pending = data.filter(x => x.physicalQty === 0).length, discrepant = data.filter(x => x.physicalQty !== x.bookQty && x.physicalQty > 0).length;
+  const pct = total > 0 ? Math.round((counted / total) * 100) : 0;
+  document.getElementById('progressBarFill').style.width = pct + '%';
+  document.getElementById('progressCountedLabel').innerText = counted;
+  document.getElementById('progressTotalLabel').innerText = total;
+  document.getElementById('progressZoneLabel').innerText = activeStoreKey;
+  document.getElementById('progCounted').innerText = counted;
+  document.getElementById('progPending').innerText = pending;
+  document.getElementById('progDiscrep').innerText = discrepant;
+  document.getElementById('progPercent').innerText = pct + '%';
+}
+
+function flagForRecount(sku, name, reason) {
+  const bucket = getRecountBucket();
+  if (!bucket[activeStoreKey]) bucket[activeStoreKey] = [];
+  if (bucket[activeStoreKey].find(x => x.sku === sku)) return;
+  bucket[activeStoreKey].push({ sku, name, reason: reason || 'Audit loop deviation notice' });
+  renderRecountQueue(); saveAllToStorage();
+}
+
+function removeFromRecount(sku) {
+  const bucket = getRecountBucket();
+  if (!bucket[activeStoreKey]) return;
+  bucket[activeStoreKey] = bucket[activeStoreKey].filter(x => x.sku !== sku);
+  renderRecountQueue(); saveAllToStorage();
+}
+
+function clearAllRecounts() {
+  getRecountBucket()[activeStoreKey] = []; renderRecountQueue(); saveAllToStorage();
+}
+
+function renderRecountQueue() {
+  const list = document.getElementById('recountList'), badge = document.getElementById('recountQueueBadge'), metricBadge = document.getElementById('metricRecountCount');
+  const items = getRecountBucket()[activeStoreKey] || [];
+  badge.innerText = items.length; if (metricBadge) metricBadge.innerText = items.length;
+  if (items.length === 0) { list.innerHTML = '<div class="recount-empty">No SKU rows targeted for second count pass verification routines.</div>'; return; }
+  list.innerHTML = items.map(x => `<div class="recount-item"><span class="recount-sku">${x.sku}</span><span class="recount-name">${x.name}</span><span class="recount-note">${x.reason}</span><button class="btn-recount-clear" onclick="removeFromRecount('${x.sku}')">✓ Clear Flag</button></div>`).join('');
+}
+
+function renderTopDiscrepancies() {
+  const n = parseInt(document.getElementById('topNSelect').value) || 10, data = getDataStores()[activeStoreKey] || [];
+  const withDisc = data.map(x => ({ ...x, variance: x.physicalQty - x.bookQty, impact: (x.physicalQty - x.bookQty) * x.price })).filter(x => x.variance !== 0).sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact)).slice(0, n);
+  const container = document.getElementById('topDiscContainer');
+  if (withDisc.length === 0) { container.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--ink3); font-size:13px;">No inventory register mismatch coordinates logged.</div>'; return; }
+  
+  const rows = withDisc.map((x, i) => {
+    return `<tr><td><span class="rank-badge ${i===0?'gold':i===1?'silver':i===2?'bronze':'rest'}">${i + 1}</span></td><td><span class="sku-pill">${x.sku}</span></td><td style="font-weight:600; color:var(--ink);">${x.name}<br><span style="font-size:11px; color:var(--ink3);">${x.brand}</span></td><td>${x.bookQty}</td><td style="font-weight:700;">${x.physicalQty}</td><td><span class="var-pill ${x.variance > 0 ? 'surplus' : 'loss'}">${x.variance > 0 ? '+' + x.variance : x.variance}</span></td><td style="font-weight:700; color:${x.impact < 0 ? 'var(--red)' : 'var(--green)'};">${x.impact>=0?'+':''}₹${Math.abs(x.impact).toLocaleString('en-IN')}</td><td>${x.reasonCode || '—'}</td></tr>`;
+  }).join('');
+  container.innerHTML = `<table class="top-disc-table"><thead><tr><th>#</th><th>SKU</th><th>Product</th><th>Book Qty</th><th>Physical Qty</th><th>Variance</th><th>Value Impact</th><th>Reason Code</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function printCountSheet() {
+  const data = getDataStores()[activeStoreKey] || []; const now = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+  document.getElementById('printZoneLabel').innerText = `Zone Grid: ${activeStoreKey}  |  Generated Stamp: ${now}`;
+  document.getElementById('printZoneName').innerText = activeStoreKey;
+  document.getElementById('printTotalSKUs').innerText = data.length;
+  document.getElementById('printGenTime').innerText = now;
+  const rows = data.map((x, i) => `<tr><td style="text-align:center;">${i + 1}</td><td style="font-family:monospace; font-weight:700;">${x.sku}</td><td>${x.name}</td><td>${x.brand}</td><td style="text-align:center;">${x.bookQty}</td><td></td><td></td><td></td></tr>`).join('');
+  document.getElementById('printTableBody').innerHTML = rows;
+  document.getElementById('printSheetArea').style.display = 'block'; window.print();
+  document.getElementById('printSheetArea').style.display = 'none';
+}
+
+function initDashboardAnalytics() {
+  const data = getDataStores()[activeStoreKey] || [];
+  let total = data.length, matched = 0, discrepant = 0, grossShrinkageCost = 0, grossSurplusValue = 0;
+  let labels = [], variances = [];
+
+  data.forEach(x => {
+    const variance = x.physicalQty - x.bookQty;
+    if(variance === 0) matched++;
+    else { discrepant++; if(variance < 0) grossShrinkageCost += (Math.abs(variance) * x.price); if(variance > 0) grossSurplusValue += (variance * x.price); }
+    labels.push(x.sku); variances.push(variance);
+  });
+
+  document.getElementById('metricTotalSKUs').innerText = total;
+  document.getElementById('metricMatched').innerText = matched;
+  document.getElementById('metricDiscrepant').innerText = discrepant;
+  document.getElementById('metricShrinkageCost').innerText = '₹' + grossShrinkageCost.toLocaleString('en-IN');
+  document.getElementById('metricSurplusValue').innerText = grossSurplusValue > 0 ? '+₹' + grossSurplusValue.toLocaleString('en-IN') : '₹0';
+  
+  updateProgressTracker(); renderRecountQueue(); renderTopDiscrepancies(); renderAuditTable();
+  updateChartGraphics(matched, discrepant, labels, variances);
+}
+
+function renderAuditTable() {
+  const searchVal = document.getElementById('searchBox').value.trim().toLowerCase();
+  const wrap = document.getElementById('tableContainer'), items = getDataStores()[activeStoreKey] || [];
+  const filtered = items.filter(x => {
+    const variance = x.physicalQty - x.bookQty;
+    const matchSearch = x.sku.toLowerCase().includes(searchVal) || x.name.toLowerCase().includes(searchVal);
+    if(!matchSearch) return false;
+    if(currentFilter === 'matched') return variance === 0;
+    if(currentFilter === 'discrepant') return variance !== 0;
+    return true;
+  });
+
+  if(filtered.length === 0) { wrap.innerHTML = `<div style="text-align:center; padding:4rem; color:var(--ink3); font-size:13px;">No record vectors matched selection filter coordinates.</div>`; return; }
+  const rows = filtered.map(x => {
+    const v = x.physicalQty - x.bookQty, impact = v * x.price;
+    return `<tr><td><span class="sku-pill">${x.sku}</span></td><td style="font-weight:600; color:var(--ink);">${x.name}<br><span style="font-size:11px; color:var(--ink3);">${x.brand}</span></td><td>${x.bookQty}</td><td style="font-weight:700;">${x.physicalQty}</td><td><span class="var-pill ${v===0?'zero':v>0?'surplus':'loss'}">${v>0?'+'+v:v}</span></td><td>${x.price>0?'₹'+x.price.toLocaleString('en-IN'):'—'}</td><td style="font-weight:600; color:${impact<0?'var(--red)':impact>0?'var(--green)':'var(--ink3)'}">${impact===0?'—':impact>0?'+₹'+impact.toLocaleString('en-IN'):'-₹'+Math.abs(impact).toLocaleString('en-IN')}</td><td style="color:var(--amber);">${x.reasonCode || '—'}</td><td><span class="status-badge ${v===0?'matched':'discrepancy'}">${v===0?'Balanced':'Discrepancy'}</span></td></tr>`;
+  }).join('');
+  wrap.innerHTML = `<table class="inv-table"><thead><tr><th>SKU</th><th>Product</th><th>Book Qty</th><th>Floor Count</th><th>Variance</th><th>Unit Price</th><th>Value Impact</th><th>Reason Code</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function updateChartGraphics(matched, discrepant, skuLabels, varianceValues) {
+  if(donutChart) donutChart.destroy();
+  const ctxDonut = document.getElementById('donutChart').getContext('2d');
+  donutChart = new Chart(ctxDonut, {
+    type: 'doughnut',
+    data: { labels: ['Balanced Matched', 'Variances Found'], datasets: [{ data: [matched, discrepant], backgroundColor: ['#34d399', '#f87171'], borderWidth: 0, hoverOffset: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#9399b0', font: { family: 'Mulish' } } } } }
+  });
+
+  if(barChart) barChart.destroy();
+  const ctxBar = document.getElementById('barChart').getContext('2d');
+  barChart = new Chart(ctxBar, {
+    type: 'bar',
+    data: { labels: skuLabels, datasets: [{ label: 'Variance Spread', data: varianceValues, backgroundColor: varianceValues.map(v => v >= 0 ? 'rgba(52,211,153,0.4)' : 'rgba(248,113,113,0.4)'), borderColor: varianceValues.map(v => v >= 0 ? '#34d399' : '#f87171'), borderWidth: 1 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#555d7a', font: { family: 'JetBrains Mono', size: 9 } } }, y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#555d7a' } } } }
+  });
+}
+</script>
+</body>
+</html>
